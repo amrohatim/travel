@@ -6,21 +6,21 @@ use Illuminate\Database\Eloquent\Model;
 
 class Flight extends Model
 {
-    //
-  protected $fillable = [
-    'from',
-    'to',
-    'travel_date',
-    'price',
-    'seats',
-    'office_id',
-    'office_name', // أضف هنا
-];
+    protected $fillable = [
+        'from',
+        'to',
+        'travel_date',
+        'departure_time',
+        'price',
+        'seats',
+        'office_id',
+        'office_name',
+    ];
 
-public function bookings()
-{
-    return $this->hasMany(Booking::class);
-}
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
 
 
 }

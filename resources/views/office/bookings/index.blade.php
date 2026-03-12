@@ -22,6 +22,7 @@
         <form method="POST" action="/bookings/{{ $booking->id }}/status">
             @csrf
             <select name="status" class="form-select mb-1">
+                <option value="pending">قيد الانتظار</option>
                 <option value="confirmed">تأكيد</option>
                 <option value="rejected">رفض</option>
             </select>

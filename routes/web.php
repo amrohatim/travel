@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FlightController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\AdminStateController;
 
 
 Route::get('/', function () {
@@ -25,9 +26,9 @@ require __DIR__.'/auth.php';
 
 
 Route::middleware(['auth', 'role:admin'])->group(function () {
-    Route::get('/admin', function () {
-        return view('admin.dashboard');
-    });
+    Route::get('/admin', [AdminStateController::class, 'index']);
+    Route::post('/admin/states', [AdminStateController::class, 'store']);
+    Route::post('/admin/states/{state}/image', [AdminStateController::class, 'updateImage']);
 });
 
 Route::middleware(['auth', 'role:office'])->group(function () {

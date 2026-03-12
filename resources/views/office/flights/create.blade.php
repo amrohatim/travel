@@ -9,7 +9,8 @@
 
     <input type="text" name="from" placeholder="من"><br>
     <input type="text" name="to" placeholder="إلى"><br>
-    <input type="date" name="travel_date"><br>
+    <label for="departure_time">وقت المغادرة</label><br>
+    <input type="datetime-local" id="departure_time" name="departure_time" required><br>
     <input type="number" name="price" placeholder="السعر"><br>
     <input type="number" name="seats" placeholder="عدد المقاعد"><br>
 

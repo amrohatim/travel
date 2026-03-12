@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Flight;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 
@@ -35,20 +36,30 @@ public function index(Request $request)
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
-{
-    Flight::create([
-    'from' => $request->from,
-    'to' => $request->to,
-    'travel_date' => $request->travel_date,
-    'price' => $request->price,
-    'seats' => $request->seats,
-    'office_id' => auth()->id(),
-    'office_name' => auth()->user()->name, // اسم المكتب
-]);
+    {
+        $validated = $request->validate([
+            'from' => ['required', 'string', 'max:255'],
+            'to' => ['required', 'string', 'max:255'],
+            'departure_time' => ['required', 'date'],
+            'price' => ['required', 'integer', 'min:0'],
+            'seats' => ['required', 'integer', 'min:1'],
+        ]);
 
+        $departureTime = Carbon::parse($validated['departure_time']);
 
-    return redirect('/office');
-}
+        Flight::create([
+            'from' => $validated['from'],
+            'to' => $validated['to'],
+            'travel_date' => $departureTime->toDateString(),
+            'departure_time' => $departureTime->toDateTimeString(),
+            'price' => $validated['price'],
+            'seats' => $validated['seats'],
+            'office_id' => auth()->id(),
+            'office_name' => auth()->user()->name,
+        ]);
+
+        return redirect('/office');
+    }
 
     /**
      * Display the specified resource.

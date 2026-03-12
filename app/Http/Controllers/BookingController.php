@@ -18,8 +18,10 @@ class BookingController extends Controller
 
         Booking::create([
             'flight_id' => $flight->id,
+            'office_id' => $flight->office_id,
             'traveler_id' => auth()->id(),
             'seats_booked' => $request->seats_booked,
+            'total' => $request->seats_booked * $flight->price,
             'status' => 'pending',
         ]);
 
@@ -51,7 +53,7 @@ return redirect('/my-bookings')->with('success', 'تم إرسال طلب الح�
     public function updateStatus(Request $request, Booking $booking)
     {
         $request->validate([
-            'status' => 'required|in:confirmed,rejected',
+            'status' => 'required|in:pending,confirmed,rejected',
         ]);
 
         $booking->update(['status' => $request->status]);
@@ -73,6 +75,7 @@ public function ticket(Booking $booking)
         
     }
 
+    $booking->load(['flight', 'traveler', 'seats']);
     $pdf = Pdf::loadView('traveler.ticket', compact('booking'));
     return $pdf->download('ticket.pdf');
     
