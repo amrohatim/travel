@@ -70,7 +70,10 @@ test('it lists offices with bankak fields', function () {
         'bankak_name' => 'Bankak A',
         'bankak_number' => 123456,
     ]);
-    $traveler = User::factory()->create(['role' => 'traveler']);
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'phone' => '0999999999',
+    ]);
 
     $response = $this->withHeaders(tokenHeaders($traveler))
         ->getJson('/api/v1/offices');
@@ -184,7 +187,10 @@ test('office can create flight and travel date is derived from departure time', 
 });
 
 test('traveler cannot access office flight creation endpoint', function () {
-    $traveler = User::factory()->create(['role' => 'traveler']);
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'phone' => '0999999999',
+    ]);
 
     $this->withHeaders(tokenHeaders($traveler))->postJson('/api/v1/office/flights', [
         'from' => 'Dubai',
@@ -197,7 +203,10 @@ test('traveler cannot access office flight creation endpoint', function () {
 
 test('traveler can create booking and seats are decremented', function () {
     $office = User::factory()->create(['role' => 'office', 'name' => 'Office C']);
-    $traveler = User::factory()->create(['role' => 'traveler']);
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'phone' => '0999999999',
+    ]);
 
     $flight = Flight::create([
         'from' => 'Dubai',
@@ -404,7 +413,10 @@ test('office bookings summary returns total and seats sums excluding rejected an
 test('office flight passengers endpoint returns only confirmed booking seats for own flight', function () {
     $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
     $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);
-    $traveler = User::factory()->create(['role' => 'traveler']);
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'phone' => '0999999999',
+    ]);
 
     $flightA = Flight::create([
         'from' => 'Khartoum',
@@ -493,6 +505,8 @@ test('office flight passengers endpoint returns only confirmed booking seats for
     expect($response->json('data.passengers'))->toHaveCount(2);
     expect($response->json('data.passengers.0.traveler_name'))->toBe('Amro Hatim');
     expect($response->json('data.passengers.1.traveler_name'))->toBe('John Doe');
+    expect($response->json('data.passengers.0.traveler_phone'))->toBe($traveler->phone);
+    expect($response->json('data.passengers.0.booking_serial_number'))->toBe($confirmedBooking->serial_number);
 
     $this->withHeaders(tokenHeaders($officeA))
         ->getJson('/api/v1/office/flights/'.$flightB->id.'/passengers')

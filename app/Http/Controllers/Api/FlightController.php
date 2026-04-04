@@ -132,11 +132,17 @@ class FlightController extends Controller
         $passengers = Seat::query()
             ->where('flight_id', $flight->id)
             ->whereHas('booking', fn ($query) => $query->where('status', 'confirmed'))
+            ->with([
+                'traveler:id,phone',
+                'booking:id,serial_number',
+            ])
             ->orderBy('id')
-            ->get(['id', 'traveler_name'])
+            ->get(['id', 'traveler_name', 'traveler_id', 'booking_id'])
             ->map(fn (Seat $seat) => [
                 'id' => $seat->id,
                 'traveler_name' => $seat->traveler_name,
+                'traveler_phone' => $seat->traveler?->phone,
+                'booking_serial_number' => $seat->booking?->serial_number,
             ])
             ->values();
 
