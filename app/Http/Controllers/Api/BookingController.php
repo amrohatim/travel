@@ -215,6 +215,7 @@ class BookingController extends Controller
     {
         $payload = [
             'id' => $booking->id,
+            'serial_number' => $booking->serial_number,
             'flight_id' => $booking->flight_id,
             'office_id' => $booking->office_id,
             'traveler_id' => $booking->traveler_id,

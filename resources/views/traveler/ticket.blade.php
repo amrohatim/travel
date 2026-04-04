@@ -59,7 +59,8 @@
                                   <span class="label">{!! arabic_text('جنيه') !!}</span>
 
               <span class="value" style="color:orange;">{{ $booking->seats_booked * $booking->flight->price }}</span>
-          <span class="label"> <h1>hello</h1> {!! arabic_text('الرقم التسلسلي : ') !!}</span>
+          <span class="value">{{ $booking->serial_number }}</span>
+          <span class="label">{!! arabic_text('الرقم التسلسلي : ') !!}</span>
 
             <span class="label">{!! arabic_text('المجموع الكلي: ') !!}</span>
           
