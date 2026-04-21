@@ -21,14 +21,14 @@ function tokenHeaders(User $user): array
 test('it registers traveler and returns token', function () {
     $response = $this->postJson('/api/v1/auth/register', [
         'name' => 'Traveler One',
-        'email' => 'traveler1@example.com',
+        'phone' => '0999999991',
         'password' => 'password123',
         'password_confirmation' => 'password123',
     ]);
 
     $response->assertCreated()
         ->assertJsonPath('message', 'Registered successfully')
-        ->assertJsonPath('data.user.email', 'traveler1@example.com')
+        ->assertJsonPath('data.user.phone', '0999999991')
         ->assertJsonPath('data.user.role', 'traveler');
 
     expect($response->json('data.token'))->not->toBeEmpty();
@@ -36,13 +36,13 @@ test('it registers traveler and returns token', function () {
 
 test('it logs in and logs out with sanctum token', function () {
     $user = User::factory()->create([
-        'email' => 'traveler2@example.com',
+        'phone' => '0999999992',
         'password' => Hash::make('password123'),
         'role' => 'traveler',
     ]);
 
     $login = $this->postJson('/api/v1/auth/login', [
-        'email' => $user->email,
+        'phone' => $user->phone,
         'password' => 'password123',
     ]);
 
@@ -56,6 +56,59 @@ test('it logs in and logs out with sanctum token', function () {
         'Accept' => 'application/json',
     ])->postJson('/api/v1/auth/logout')->assertOk()
         ->assertJsonPath('message', 'Logged out successfully');
+});
+
+test('registration requires a valid 10 digit phone', function () {
+    $response = $this->postJson('/api/v1/auth/register', [
+        'name' => 'Traveler Invalid',
+        'phone' => '09999',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJsonPath('message', 'Validation failed');
+});
+
+test('registration rejects duplicate phone', function () {
+    User::factory()->create([
+        'phone' => '0999999994',
+    ]);
+
+    $response = $this->postJson('/api/v1/auth/register', [
+        'name' => 'Traveler Duplicate',
+        'phone' => '0999999994',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJsonPath('message', 'Validation failed');
+});
+
+test('office and admin can login using phone', function () {
+    $office = User::factory()->create([
+        'role' => 'office',
+        'phone' => '0999999995',
+        'password' => Hash::make('password123'),
+    ]);
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'phone' => '0999999996',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $office->phone,
+        'password' => 'password123',
+    ])->assertOk()
+        ->assertJsonPath('data.user.role', 'office');
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $admin->phone,
+        'password' => 'password123',
+    ])->assertOk()
+        ->assertJsonPath('data.user.role', 'admin');
 });
 
 test('it requires authentication for protected endpoints', function () {
@@ -90,7 +143,7 @@ test('office can view and update own profile', function () {
     $office = User::factory()->create([
         'role' => 'office',
         'name' => 'Office Profile',
-        'phone' => '0111111',
+        'phone' => '0911111111',
         'bankak_name' => 'Old Bankak',
         'bankak_number' => 222222,
     ]);
@@ -100,14 +153,14 @@ test('office can view and update own profile', function () {
         ->assertOk()
         ->assertJsonPath('message', 'Office profile retrieved successfully')
         ->assertJsonPath('data.name', 'Office Profile')
-        ->assertJsonPath('data.phone', '0111111')
+        ->assertJsonPath('data.phone', '0911111111')
         ->assertJsonPath('data.bankak_name', 'Old Bankak')
         ->assertJsonPath('data.bankak_number', 222222);
 
     $response = $this->withHeaders(tokenHeaders($office))
         ->post('/api/v1/office/profile', [
             'name' => 'Office Updated',
-            'phone' => '0538573',
+            'phone' => '0953857300',
             'bankak_name' => 'New Bankak',
             'bankak_number' => 444444,
             'image' => UploadedFile::fake()->image('office.jpg'),
@@ -116,14 +169,14 @@ test('office can view and update own profile', function () {
     $response->assertOk()
         ->assertJsonPath('message', 'Office profile updated successfully')
         ->assertJsonPath('data.name', 'Office Updated')
-        ->assertJsonPath('data.phone', '0538573')
+        ->assertJsonPath('data.phone', '0953857300')
         ->assertJsonPath('data.bankak_name', 'New Bankak')
         ->assertJsonPath('data.bankak_number', 444444);
 
     $this->assertDatabaseHas('users', [
         'id' => $office->id,
         'name' => 'Office Updated',
-        'phone' => '0538573',
+        'phone' => '0953857300',
         'bankak_name' => 'New Bankak',
         'bankak_number' => 444444,
     ]);

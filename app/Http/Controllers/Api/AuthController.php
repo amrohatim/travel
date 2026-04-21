@@ -15,7 +15,7 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['required', 'string', 'regex:/^\d{10}$/', 'unique:users,phone'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
@@ -28,7 +28,7 @@ class AuthController extends Controller
 
         $user = User::create([
             'name' => $request->string('name')->toString(),
-            'email' => $request->string('email')->toString(),
+            'phone' => $request->string('phone')->toString(),
             'password' => Hash::make($request->string('password')->toString()),
             'role' => 'traveler',
         ]);
@@ -47,7 +47,7 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'email' => ['required', 'string', 'email'],
+            'phone' => ['required', 'string', 'regex:/^\d{10}$/'],
             'password' => ['required', 'string'],
         ]);
 
@@ -58,13 +58,13 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = User::where('email', $request->string('email')->toString())->first();
+        $user = User::where('phone', $request->string('phone')->toString())->first();
 
         if (! $user || ! Hash::check($request->string('password')->toString(), $user->password)) {
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => [
-                    'email' => ['The provided credentials are incorrect.'],
+                    'phone' => ['The provided credentials are incorrect.'],
                 ],
             ], 422);
         }
@@ -99,6 +99,7 @@ class AuthController extends Controller
         return [
             'id' => $user->id,
             'name' => $user->name,
+            'phone' => $user->phone,
             'email' => $user->email,
             'role' => $user->role,
             'image' => $user->image,
