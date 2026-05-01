@@ -245,6 +245,7 @@ class BookingController extends Controller
                 'id' => $booking->traveler->id,
                 'name' => $booking->traveler->name,
                 'email' => $booking->traveler->email,
+                 'phone' => $booking->traveler->phone,
             ];
         }
 
