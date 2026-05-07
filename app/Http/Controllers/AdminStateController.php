@@ -16,7 +16,7 @@ class AdminStateController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('admin.dashboard', compact('states'));
+        return view('admin.states.index', compact('states'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -36,7 +36,7 @@ class AdminStateController extends Controller
             'image' => $imagePath,
         ]);
 
-        return redirect('/admin')->with('success', 'State added successfully.');
+        return redirect()->route('admin.states.index')->with('success', 'State added successfully.');
     }
 
     public function updateImage(Request $request, State $state): RedirectResponse
@@ -58,6 +58,6 @@ class AdminStateController extends Controller
             'image' => $imagePath,
         ]);
 
-        return redirect('/admin')->with('success', "Image updated for state {$state->name}.");
+        return redirect()->route('admin.states.index')->with('success', "Image updated for state {$state->name}.");
     }
 }

@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\AdminBookingController;
+use App\Http\Controllers\AdminFlightController;
+use App\Http\Controllers\AdminStateController;
+use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\FlightController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\FlightController;
-use App\Http\Controllers\BookingController;
-use App\Http\Controllers\AdminStateController;
-
 
 Route::get('/', function () {
     return view('welcome');
@@ -23,28 +25,34 @@ Route::middleware('auth')->group(function () {
 
 require __DIR__.'/auth.php';
 
+Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::redirect('/', '/admin/users');
 
+    Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [AdminUserController::class, 'create'])->name('users.create');
+    Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
+    Route::get('/users/{user}/edit', [AdminUserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
 
-Route::middleware(['auth', 'role:admin'])->group(function () {
-    Route::get('/admin', [AdminStateController::class, 'index']);
-    Route::post('/admin/states', [AdminStateController::class, 'store']);
-    Route::post('/admin/states/{state}/image', [AdminStateController::class, 'updateImage']);
+    Route::get('/flights', [AdminFlightController::class, 'index'])->name('flights.index');
+    Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
+
+    Route::get('/states', [AdminStateController::class, 'index'])->name('states.index');
+    Route::post('/states', [AdminStateController::class, 'store'])->name('states.store');
+    Route::post('/states/{state}/image', [AdminStateController::class, 'updateImage'])->name('states.image.update');
 });
 
 Route::middleware(['auth', 'role:office'])->group(function () {
     Route::get('/office', function () {
         return view('office.dashboard');
     });
-    
 
-     Route::get('/office/flights/create', [FlightController::class, 'create']);
-     Route::get('/office/flights/myflights', [FlightController::class, 'show']);
+    Route::get('/office/flights/create', [FlightController::class, 'create']);
+    Route::get('/office/flights/myflights', [FlightController::class, 'show']);
     Route::post('/office/flights', [FlightController::class, 'store']);
-        Route::get('/office/bookings', [BookingController::class, 'officeBookings']);
+    Route::get('/office/bookings', [BookingController::class, 'officeBookings']);
     Route::post('/bookings/{booking}/status', [BookingController::class, 'updateStatus']);
-
-
-
 });
 
 Route::middleware(['auth', 'role:traveler'])->group(function () {
@@ -52,9 +60,8 @@ Route::middleware(['auth', 'role:traveler'])->group(function () {
         return view('traveler.dashboard');
     });
 
-        Route::get('/flights', [FlightController::class, 'index']);
-        Route::post('/flights/{flight}/book', [BookingController::class, 'store']);
-        Route::get('/my-bookings', [BookingController::class, 'myBookings']);
-        Route::get('/ticket/{booking}', [BookingController::class, 'ticket']);
-
+    Route::get('/flights', [FlightController::class, 'index']);
+    Route::post('/flights/{flight}/book', [BookingController::class, 'store']);
+    Route::get('/my-bookings', [BookingController::class, 'myBookings']);
+    Route::get('/ticket/{booking}', [BookingController::class, 'ticket']);
 });

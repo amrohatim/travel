@@ -24,7 +24,7 @@
         @endif
 
         @if(auth()->user()->role == 'admin')
-            <a class="btn btn-warning" href="/admin">لوحة المدير</a>
+            <a class="btn btn-warning" href="{{ route('admin.users.index') }}">لوحة المدير</a>
         @endif
 
         <form method="POST" action="/logout">

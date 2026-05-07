@@ -22,12 +22,17 @@ class AppServiceProvider extends ServiceProvider
         //
     }
     public static function redirectTo()
-{
-    $role = auth()->user()->role;
+    {
+        $role = auth()->user()->role;
 
-    if ($role == 'admin') return '/admin';
-    if ($role == 'office') return '/office';
-    return '/traveler';
-}
+        if ($role == 'admin') {
+            return '/admin/users';
+        }
+        if ($role == 'office') {
+            return '/office';
+        }
+
+        return '/traveler';
+    }
 
 }
