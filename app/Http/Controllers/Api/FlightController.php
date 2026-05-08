@@ -64,6 +64,52 @@ class FlightController extends Controller
         ], 201);
     }
 
+    public function update(Request $request, Flight $flight): JsonResponse
+    {
+        if ((int) $flight->office_id !== (int) $request->user()->id) {
+            return response()->json([
+                'message' => 'Forbidden',
+            ], 403);
+        }
+
+        if ($flight->bookings()->exists()) {
+            return response()->json([
+                'message' => 'This flight cannot be edited because bookings already exist.',
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'from' => ['required', 'string', 'max:255'],
+            'to' => ['required', 'string', 'max:255'],
+            'departure_time' => ['required', 'date'],
+            'price' => ['required', 'integer', 'min:0'],
+            'seats' => ['required', 'integer', 'min:1'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $departureTime = Carbon::parse($request->input('departure_time'));
+
+        $flight->update([
+            'from' => $request->string('from')->toString(),
+            'to' => $request->string('to')->toString(),
+            'travel_date' => $departureTime->toDateString(),
+            'departure_time' => $departureTime->toDateTimeString(),
+            'price' => (int) $request->input('price'),
+            'seats' => (int) $request->input('seats'),
+        ]);
+
+        return response()->json([
+            'message' => 'Flight updated successfully',
+            'data' => $this->flightPayload($flight->fresh()),
+        ]);
+    }
+
     public function officeToday(Request $request): JsonResponse
     {
         $queryDate = $request->query('date');

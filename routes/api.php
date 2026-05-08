@@ -23,6 +23,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/office/profile', [OfficeController::class, 'profile']);
             Route::post('/office/profile', [OfficeController::class, 'updateProfile']);
             Route::post('/office/flights', [FlightController::class, 'store']);
+            Route::patch('/office/flights/{flight}', [FlightController::class, 'update']);
             Route::get('/office/flights/today', [FlightController::class, 'officeToday']);
             Route::get('/office/flights/upcoming', [FlightController::class, 'officeUpcoming']);
             Route::get('/office/flights/previous', [FlightController::class, 'officePrevious']);
