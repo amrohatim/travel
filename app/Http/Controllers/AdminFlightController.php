@@ -21,6 +21,17 @@ class AdminFlightController extends Controller
         return view('admin.flights.index', compact('flights'));
     }
 
+    public function seats(Flight $flight): View
+    {
+        $seats = Seat::query()
+            ->with(['traveler', 'booking'])
+            ->where('flight_id', $flight->id)
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        return view('admin.flights.seats', compact('flight', 'seats'));
+    }
+
     public function destroy(Flight $flight): RedirectResponse
     {
         DB::transaction(function () use ($flight): void {

@@ -36,9 +36,11 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
 
     Route::get('/flights', [AdminFlightController::class, 'index'])->name('flights.index');
+    Route::get('/flights/{flight}/seats', [AdminFlightController::class, 'seats'])->name('flights.seats');
     Route::delete('/flights/{flight}', [AdminFlightController::class, 'destroy'])->name('flights.destroy');
     Route::post('/flights/bulk-delete', [AdminFlightController::class, 'bulkDestroy'])->name('flights.bulk-destroy');
     Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/{booking}/seats', [AdminBookingController::class, 'seats'])->name('bookings.seats');
     Route::delete('/bookings/{booking}', [AdminBookingController::class, 'destroy'])->name('bookings.destroy');
     Route::post('/bookings/bulk-delete', [AdminBookingController::class, 'bulkDestroy'])->name('bookings.bulk-destroy');
 

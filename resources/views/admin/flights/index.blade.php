@@ -36,6 +36,7 @@
                             <td>{{ $flight->seats }}</td>
                             <td>{{ $flight->office_name ?: '—' }}</td>
                             <td class="text-end">
+                                <a href="{{ route('admin.flights.seats', $flight) }}" class="btn btn-sm btn-outline-mono">View Seats</a>
                                 <form method="POST" action="{{ route('admin.flights.destroy', $flight) }}" class="d-inline" onsubmit="return confirm('Delete this flight and all related bookings/seats?');">
                                     @csrf
                                     @method('DELETE')

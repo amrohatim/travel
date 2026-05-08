@@ -56,6 +56,34 @@ it('blocks non admin users from admin delete endpoints', function () {
     $this->actingAs($traveler)->post('/admin/bookings/bulk-delete', ['ids' => [$booking->id]])->assertForbidden();
 });
 
+it('blocks non admin users from admin seats endpoints', function () {
+    $traveler = User::factory()->create(['role' => 'traveler']);
+    $office = User::factory()->create(['role' => 'office']);
+
+    $flight = Flight::query()->create([
+        'from' => 'U',
+        'to' => 'V',
+        'travel_date' => now()->toDateString(),
+        'departure_time' => '11:00',
+        'price' => 220,
+        'seats' => 15,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::query()->create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 220,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($traveler)->get('/admin/flights/'.$flight->id.'/seats')->assertForbidden();
+    $this->actingAs($traveler)->get('/admin/bookings/'.$booking->id.'/seats')->assertForbidden();
+});
+
 it('admin can create a user', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
@@ -154,9 +182,127 @@ it('admin pages render expected headings', function () {
 
     State::query()->create(['name' => 'Test State']);
 
-    $this->actingAs($admin)->get('/admin/flights')->assertSeeText('Flights')->assertSeeText('Delete Selected');
-    $this->actingAs($admin)->get('/admin/bookings')->assertSeeText('Bookings')->assertSeeText('Delete Selected');
+    $this->actingAs($admin)->get('/admin/flights')->assertSeeText('Flights')->assertSeeText('Delete Selected')->assertSeeText('View Seats');
+    $this->actingAs($admin)->get('/admin/bookings')->assertSeeText('Bookings')->assertSeeText('Delete Selected')->assertSeeText('View Seats');
     $this->actingAs($admin)->get('/admin/states')->assertSeeText('States');
+});
+
+it('admin can view flight seats details with traveler data', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office']);
+    $traveler = User::factory()->create(['role' => 'traveler', 'name' => 'Traveler A', 'phone' => '7777']);
+
+    $flight = Flight::query()->create([
+        'from' => 'J',
+        'to' => 'K',
+        'travel_date' => now()->toDateString(),
+        'departure_time' => '07:00',
+        'price' => 80,
+        'seats' => 10,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::query()->create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 80,
+        'status' => 'pending',
+    ]);
+
+    Seat::query()->create([
+        'traveler_id' => $traveler->id,
+        'flight_id' => $flight->id,
+        'booking_id' => $booking->id,
+        'traveler_name' => 'Traveler A',
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights/'.$flight->id.'/seats')
+        ->assertOk()
+        ->assertSeeText('Flight Seats')
+        ->assertSeeText('Traveler A')
+        ->assertSeeText('7777')
+        ->assertSeeText($booking->serial_number);
+});
+
+it('admin can view booking seats details with traveler data', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office']);
+    $traveler = User::factory()->create(['role' => 'traveler', 'name' => 'Traveler B', 'phone' => '8888']);
+
+    $flight = Flight::query()->create([
+        'from' => 'L',
+        'to' => 'M',
+        'travel_date' => now()->toDateString(),
+        'departure_time' => '13:00',
+        'price' => 90,
+        'seats' => 10,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::query()->create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 90,
+        'status' => 'pending',
+    ]);
+
+    Seat::query()->create([
+        'traveler_id' => $traveler->id,
+        'flight_id' => $flight->id,
+        'booking_id' => $booking->id,
+        'traveler_name' => 'Traveler B',
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/bookings/'.$booking->id.'/seats')
+        ->assertOk()
+        ->assertSeeText('Booking Seats')
+        ->assertSeeText('Traveler B')
+        ->assertSeeText('8888')
+        ->assertSeeText($booking->serial_number);
+});
+
+it('seat details pages show empty state when no seats', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::query()->create([
+        'from' => 'N',
+        'to' => 'O',
+        'travel_date' => now()->toDateString(),
+        'departure_time' => '19:00',
+        'price' => 55,
+        'seats' => 5,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::query()->create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 55,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights/'.$flight->id.'/seats')
+        ->assertOk()
+        ->assertSeeText('No seats found for this flight.');
+
+    $this->actingAs($admin)
+        ->get('/admin/bookings/'.$booking->id.'/seats')
+        ->assertOk()
+        ->assertSeeText('No seats found for this booking.');
 });
 
 it('admin can delete a booking and its seats', function () {

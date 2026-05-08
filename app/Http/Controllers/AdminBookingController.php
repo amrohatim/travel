@@ -21,6 +21,17 @@ class AdminBookingController extends Controller
         return view('admin.bookings.index', compact('bookings'));
     }
 
+    public function seats(Booking $booking): View
+    {
+        $seats = Seat::query()
+            ->with(['traveler', 'booking'])
+            ->where('booking_id', $booking->id)
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        return view('admin.bookings.seats', compact('booking', 'seats'));
+    }
+
     public function destroy(Booking $booking): RedirectResponse
     {
         DB::transaction(function () use ($booking): void {

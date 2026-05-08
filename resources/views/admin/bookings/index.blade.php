@@ -38,6 +38,7 @@
                             <td>{{ $booking->status }}</td>
                             <td>{{ $booking->created_at?->format('Y-m-d H:i') }}</td>
                             <td class="text-end">
+                                <a href="{{ route('admin.bookings.seats', $booking) }}" class="btn btn-sm btn-outline-mono">View Seats</a>
                                 <form method="POST" action="{{ route('admin.bookings.destroy', $booking) }}" class="d-inline" onsubmit="return confirm('Delete this booking and related seats?');">
                                     @csrf
                                     @method('DELETE')
