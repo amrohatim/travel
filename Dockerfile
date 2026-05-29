@@ -40,14 +40,11 @@ COPY --from=node:22-bookworm-slim /usr/local/lib/node_modules /usr/local/lib/nod
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
-COPY composer.json composer.lock package.json package-lock.json ./
-
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
-    && npm ci
-
 COPY . .
 
-RUN npm run build \
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
+    && npm ci \
+    && npm run build \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chown -R www-data:www-data /var/www/html
 
