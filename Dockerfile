@@ -44,7 +44,7 @@ COPY . .
 
 RUN if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi \
     && composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts \
-    && npm ci \
+    && npm ci --include=dev \
     && npm run build \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chown -R www-data:www-data /var/www/html
