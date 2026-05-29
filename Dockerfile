@@ -42,7 +42,8 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
+RUN if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi \
+    && composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts \
     && npm ci \
     && npm run build \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \

@@ -9,6 +9,8 @@ if [ ! -f .env ] && [ -f .env.example ]; then
   cp .env.example .env
 fi
 
+php artisan package:discover --ansi
+
 if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
   php artisan migrate --force --no-interaction
 fi
