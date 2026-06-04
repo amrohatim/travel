@@ -7,12 +7,18 @@ use App\Http\Controllers\AdminStateController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\FlightController;
+use App\Http\Controllers\ParentCompanyPublicController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/companies/{parentCompany}', [ParentCompanyPublicController::class, 'show'])->name('companies.show');
+Route::get('/.well-known/assetlinks.json', [ParentCompanyPublicController::class, 'assetLinks']);
+Route::get('/apple-app-site-association', [ParentCompanyPublicController::class, 'appleAppSiteAssociation']);
+Route::get('/.well-known/apple-app-site-association', [ParentCompanyPublicController::class, 'appleAppSiteAssociation']);
 
 Route::get('/dashboard', function () {
     return view('dashboard');
@@ -52,6 +58,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/parent-companies', [AdminParentCompanyController::class, 'index'])->name('parent-companies.index');
     Route::post('/parent-companies', [AdminParentCompanyController::class, 'store'])->name('parent-companies.store');
     Route::post('/parent-companies/{parentCompany}/image', [AdminParentCompanyController::class, 'updateImage'])->name('parent-companies.image.update');
+    Route::get('/parent-companies/{parentCompany}/qr', [AdminParentCompanyController::class, 'qrPreview'])->name('parent-companies.qr.preview');
+    Route::get('/parent-companies/{parentCompany}/qr/download', [AdminParentCompanyController::class, 'downloadQr'])->name('parent-companies.qr.download');
 });
 
 Route::middleware(['auth', 'role:office'])->group(function () {

@@ -9,6 +9,7 @@
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "^3.1",
         "contributte/vite": "^0.3.0",
+        "endroid/qr-code": "6.0",
         "khaled.alshamaa/ar-php": "^7.0",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.3",

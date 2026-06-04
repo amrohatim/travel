@@ -47,6 +47,7 @@
                                 <th>ID</th>
                                 <th>Name</th>
                                 <th>Image</th>
+                                <th>QR Code</th>
                                 <th>Update Image</th>
                             </tr>
                         </thead>
@@ -75,6 +76,13 @@
                                         @else
                                             <span class="text-secondary">No image</span>
                                         @endif
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-column gap-2">
+                                            <img src="{{ route('admin.parent-companies.qr.preview', $parentCompany) }}" alt="QR code for {{ $parentCompany->name }}" style="width: 96px; height: 96px; border: 1px solid #000;">
+                                            <a href="{{ route('admin.parent-companies.qr.download', $parentCompany) }}" class="btn btn-sm btn-outline-mono">Download PNG</a>
+                                            <a href="{{ $parentCompany->publicUrl() }}" target="_blank" class="text-dark">Open Landing Page</a>
+                                        </div>
                                     </td>
                                     <td>
                                         <form method="POST" action="{{ route('admin.parent-companies.image.update', $parentCompany) }}" enctype="multipart/form-data" class="d-flex flex-column gap-2">

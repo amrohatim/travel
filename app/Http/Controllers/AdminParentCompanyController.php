@@ -3,6 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\ParentCompany;
+use Endroid\QrCode\Builder\Builder;
+use Endroid\QrCode\Encoding\Encoding;
+use Endroid\QrCode\ErrorCorrectionLevel;
+use Endroid\QrCode\RoundBlockSizeMode;
+use Endroid\QrCode\Writer\PngWriter;
+use Illuminate\Http\Response;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -59,5 +65,45 @@ class AdminParentCompanyController extends Controller
         ]);
 
         return redirect()->route('admin.parent-companies.index')->with('success', "Image updated for parent company {$parentCompany->name}.");
+    }
+
+    public function qrPreview(ParentCompany $parentCompany): Response
+    {
+        return $this->qrResponse($parentCompany, false);
+    }
+
+    public function downloadQr(ParentCompany $parentCompany): Response
+    {
+        return $this->qrResponse($parentCompany, true);
+    }
+
+    private function qrResponse(ParentCompany $parentCompany, bool $download): Response
+    {
+        $result = Builder::create()
+            ->writer(new PngWriter())
+            ->data($parentCompany->publicUrl())
+            ->encoding(new Encoding('UTF-8'))
+            ->errorCorrectionLevel(ErrorCorrectionLevel::High)
+            ->size(420)
+            ->margin(16)
+            ->roundBlockSizeMode(RoundBlockSizeMode::Margin)
+            ->build();
+
+        $response = response($result->getString(), 200, [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
+
+        if ($download) {
+            $response->header(
+                'Content-Disposition',
+                sprintf(
+                    'attachment; filename="parent-company-%d-qr.png"',
+                    $parentCompany->id
+                )
+            );
+        }
+
+        return $response;
     }
 }

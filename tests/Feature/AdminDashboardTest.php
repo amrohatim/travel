@@ -655,3 +655,45 @@ it('parent company create and image update still work', function () {
 
     expect($parentCompany->fresh()->image)->not->toBeNull();
 });
+
+it('parent company admin page renders qr preview and download controls', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'QR Group']);
+
+    $this->actingAs($admin)
+        ->get('/admin/parent-companies')
+        ->assertOk()
+        ->assertSee('/admin/parent-companies/'.$parentCompany->id.'/qr', false)
+        ->assertSee('/admin/parent-companies/'.$parentCompany->id.'/qr/download', false);
+});
+
+it('admin can preview and download a parent company qr code png', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'QR Download Group']);
+
+    $previewResponse = $this->actingAs($admin)
+        ->get('/admin/parent-companies/'.$parentCompany->id.'/qr');
+
+    $previewResponse->assertOk();
+    expect($previewResponse->headers->get('content-type'))->toContain('image/png');
+
+    $downloadResponse = $this->actingAs($admin)
+        ->get('/admin/parent-companies/'.$parentCompany->id.'/qr/download');
+
+    $downloadResponse->assertOk();
+    expect($downloadResponse->headers->get('content-type'))->toContain('image/png');
+    expect($downloadResponse->headers->get('content-disposition'))->toContain('attachment;');
+});
+
+it('public company landing page renders company details and open app call to action', function () {
+    $parentCompany = ParentCompany::create(['name' => 'Landing Group']);
+
+    $this->get('/companies/'.$parentCompany->id)
+        ->assertOk()
+        ->assertSeeText('Landing Group')
+        ->assertSeeText('Open In App');
+});
+
+it('public company landing page returns 404 for invalid company id', function () {
+    $this->get('/companies/999999')->assertNotFound();
+});
