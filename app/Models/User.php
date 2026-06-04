@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -28,6 +29,7 @@ class User extends Authenticatable
         'bankak_number',
         'password',
         'role',
+        'parent_company_id',
     ];
 
 
@@ -57,5 +59,10 @@ class User extends Authenticatable
     public function deviceTokens(): HasMany
     {
         return $this->hasMany(UserDeviceToken::class);
+    }
+
+    public function parentCompany(): BelongsTo
+    {
+        return $this->belongsTo(ParentCompany::class);
     }
 }

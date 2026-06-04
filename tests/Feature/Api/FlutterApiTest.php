@@ -2,6 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Flight;
+use App\Models\ParentCompany;
 use App\Models\Seat;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -117,11 +118,28 @@ test('it requires authentication for protected endpoints', function () {
 });
 
 test('it lists offices with bankak fields', function () {
+    $zetaCompany = ParentCompany::create([
+        'name' => 'Zeta Group',
+        'image' => 'companies/zeta.png',
+    ]);
+    $alphaCompany = ParentCompany::create([
+        'name' => 'Alpha Group',
+        'image' => 'companies/alpha.png',
+    ]);
+
     User::factory()->create([
-        'name' => 'Office One',
+        'name' => 'Office Z',
         'role' => 'office',
         'bankak_name' => 'Bankak A',
         'bankak_number' => 123456,
+        'parent_company_id' => $zetaCompany->id,
+    ]);
+    User::factory()->create([
+        'name' => 'Office A',
+        'role' => 'office',
+        'bankak_name' => 'Bankak B',
+        'bankak_number' => 654321,
+        'parent_company_id' => $alphaCompany->id,
     ]);
     $traveler = User::factory()->create([
         'role' => 'traveler',
@@ -133,8 +151,14 @@ test('it lists offices with bankak fields', function () {
 
     $response->assertOk()
         ->assertJsonPath('message', 'Offices retrieved successfully')
-        ->assertJsonPath('data.0.bankak_name', 'Bankak A')
-        ->assertJsonPath('data.0.bankak_number', 123456);
+        ->assertJsonPath('data.0.name', 'Office A')
+        ->assertJsonPath('data.0.bankak_name', 'Bankak B')
+        ->assertJsonPath('data.0.bankak_number', 654321)
+        ->assertJsonPath('data.0.parent_company_id', $alphaCompany->id)
+        ->assertJsonPath('data.0.parent_company_name', 'Alpha Group')
+        ->assertJsonPath('data.0.parent_company_image', url('companies/alpha.png'))
+        ->assertJsonPath('data.1.name', 'Office Z')
+        ->assertJsonPath('data.1.parent_company_name', 'Zeta Group');
 });
 
 test('office can view and update own profile', function () {

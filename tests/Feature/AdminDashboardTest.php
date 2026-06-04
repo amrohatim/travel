@@ -2,6 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Flight;
+use App\Models\ParentCompany;
 use App\Models\Seat;
 use App\Models\State;
 use App\Models\User;
@@ -86,12 +87,14 @@ it('blocks non admin users from admin seats endpoints', function () {
 
 it('admin can create a user', function () {
     $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Created Group']);
 
     $response = $this->actingAs($admin)->post('/admin/users', [
         'name' => 'Created User',
         'email' => 'created@example.com',
         'phone' => '1234567',
         'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
         'password' => 'secret123',
         'password_confirmation' => 'secret123',
     ]);
@@ -103,6 +106,7 @@ it('admin can create a user', function () {
         'email' => 'created@example.com',
         'phone' => '1234567',
         'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
     ]);
 });
 
@@ -123,8 +127,46 @@ it('admin create user validation catches invalid payload', function () {
     $response->assertSessionHasErrors(['name', 'email', 'phone', 'role', 'password']);
 });
 
+it('admin create office validation requires a parent company', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $response = $this->actingAs($admin)->from('/admin/users/create')->post('/admin/users', [
+        'name' => 'Office Missing Company',
+        'email' => 'office-missing@example.com',
+        'phone' => '3333',
+        'role' => 'office',
+        'password' => 'secret123',
+        'password_confirmation' => 'secret123',
+    ]);
+
+    $response->assertRedirect('/admin/users/create');
+    $response->assertSessionHasErrors(['parent_company_id']);
+});
+
+it('admin can create a non-office user without a parent company', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $response = $this->actingAs($admin)->post('/admin/users', [
+        'name' => 'Traveler Without Company',
+        'email' => 'traveler@example.com',
+        'phone' => '1234000',
+        'role' => 'traveler',
+        'password' => 'secret123',
+        'password_confirmation' => 'secret123',
+    ]);
+
+    $response->assertRedirect('/admin/users');
+
+    $this->assertDatabaseHas('users', [
+        'email' => 'traveler@example.com',
+        'role' => 'traveler',
+        'parent_company_id' => null,
+    ]);
+});
+
 it('admin can update a user', function () {
     $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Updated Group']);
     $user = User::factory()->create(['role' => 'traveler', 'phone' => '4444']);
 
     $response = $this->actingAs($admin)->put('/admin/users/'.$user->id, [
@@ -132,6 +174,7 @@ it('admin can update a user', function () {
         'email' => 'updated@example.com',
         'phone' => '5555',
         'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
     ]);
 
     $response->assertRedirect('/admin/users');
@@ -142,6 +185,49 @@ it('admin can update a user', function () {
         'email' => 'updated@example.com',
         'phone' => '5555',
         'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
+    ]);
+});
+
+it('admin update office validation requires a parent company', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $user = User::factory()->create(['role' => 'office', 'phone' => '4445']);
+
+    $response = $this->actingAs($admin)
+        ->from('/admin/users/'.$user->id.'/edit')
+        ->put('/admin/users/'.$user->id, [
+            'name' => 'Updated Name',
+            'email' => 'updated-missing@example.com',
+            'phone' => '5556',
+            'role' => 'office',
+        ]);
+
+    $response->assertRedirect('/admin/users/'.$user->id.'/edit');
+    $response->assertSessionHasErrors(['parent_company_id']);
+});
+
+it('admin can remove office company by changing role to traveler', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Role Switch Group']);
+    $user = User::factory()->create([
+        'role' => 'office',
+        'phone' => '4545',
+        'parent_company_id' => $parentCompany->id,
+    ]);
+
+    $response = $this->actingAs($admin)->put('/admin/users/'.$user->id, [
+        'name' => 'Traveler Now',
+        'email' => 'traveler-now@example.com',
+        'phone' => '5454',
+        'role' => 'traveler',
+    ]);
+
+    $response->assertRedirect('/admin/users');
+
+    $this->assertDatabaseHas('users', [
+        'id' => $user->id,
+        'role' => 'traveler',
+        'parent_company_id' => null,
     ]);
 });
 

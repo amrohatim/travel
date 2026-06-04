@@ -19,6 +19,7 @@
                         <th>Phone</th>
                         <th>Bankak Name</th>
                         <th>Bankak Number</th>
+                        <th>Parent Company</th>
                         <th>Role</th>
                         <th>Created</th>
                         <th class="text-end">Actions</th>
@@ -38,13 +39,14 @@
                                     @endphp
                                     <img src="{{ $imageUrl }}" alt="{{ $user->name }}" style="width: 40px; height: 40px; object-fit: cover; border: 1px solid #000;">
                                 @else
-                                    —
+                                    -
                                 @endif
                             </td>
-                            <td>{{ $user->email ?: '—' }}</td>
-                            <td>{{ $user->phone ?: '—' }}</td>
-                            <td>{{ $user->bankak_name ?: '—' }}</td>
-                            <td>{{ $user->bankak_number ?: '—' }}</td>
+                            <td>{{ $user->email ?: '-' }}</td>
+                            <td>{{ $user->phone ?: '-' }}</td>
+                            <td>{{ $user->bankak_name ?: '-' }}</td>
+                            <td>{{ $user->bankak_number ?: '-' }}</td>
+                            <td>{{ $user->role === 'office' ? ($user->parentCompany?->name ?: '-') : '-' }}</td>
                             <td>{{ $user->role }}</td>
                             <td>{{ $user->created_at?->format('Y-m-d H:i') }}</td>
                             <td class="text-end">

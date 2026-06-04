@@ -28,9 +28,19 @@
 
         <div class="col-md-6">
             <label class="form-label">Role</label>
-            <select name="role" class="form-select" required>
+            <select name="role" class="form-select" id="role-select" required>
                 @foreach (['admin', 'office', 'traveler'] as $role)
                     <option value="{{ $role }}" @selected(old('role', $user->role) === $role)>{{ ucfirst($role) }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="col-md-6" id="parent-company-field" @if (old('role', $user->role) !== 'office') style="display: none;" @endif>
+            <label class="form-label">Parent Company</label>
+            <select name="parent_company_id" class="form-select" id="parent-company-select">
+                <option value="">Select parent company</option>
+                @foreach ($parentCompanies as $parentCompany)
+                    <option value="{{ $parentCompany->id }}" @selected((string) old('parent_company_id', $user->parent_company_id) === (string) $parentCompany->id)>{{ $parentCompany->name }}</option>
                 @endforeach
             </select>
         </div>
@@ -70,4 +80,25 @@
         </div>
     </form>
 </div>
+
+<script>
+    (() => {
+        const roleSelect = document.getElementById('role-select');
+        const parentCompanyField = document.getElementById('parent-company-field');
+        const parentCompanySelect = document.getElementById('parent-company-select');
+
+        const syncParentCompanyField = () => {
+            const isOffice = roleSelect.value === 'office';
+            parentCompanyField.style.display = isOffice ? '' : 'none';
+            parentCompanySelect.required = isOffice;
+
+            if (!isOffice) {
+                parentCompanySelect.value = '';
+            }
+        };
+
+        syncParentCompanyField();
+        roleSelect.addEventListener('change', syncParentCompanyField);
+    })();
+</script>
 @endsection

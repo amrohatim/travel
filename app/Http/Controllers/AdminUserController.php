@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ParentCompany;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class AdminUserController extends Controller
     public function index(): View
     {
         $users = User::query()
+            ->with('parentCompany')
             ->orderByDesc('created_at')
             ->paginate(15);
 
@@ -22,7 +24,11 @@ class AdminUserController extends Controller
 
     public function create(): View
     {
-        return view('admin.users.create');
+        $parentCompanies = ParentCompany::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('admin.users.create', compact('parentCompanies'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -35,8 +41,18 @@ class AdminUserController extends Controller
             'bankak_number' => ['nullable', 'string', 'max:255'],
             'image' => ['nullable', 'image', 'max:2048'],
             'role' => ['required', Rule::in(['admin', 'office', 'traveler'])],
+            'parent_company_id' => [
+                Rule::requiredIf(fn () => $request->input('role') === 'office'),
+                'nullable',
+                'integer',
+                'exists:parent_companies,id',
+            ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
+
+        if (($validated['role'] ?? null) !== 'office') {
+            $validated['parent_company_id'] = null;
+        }
 
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('users', 'public');
@@ -49,7 +65,11 @@ class AdminUserController extends Controller
 
     public function edit(User $user): View
     {
-        return view('admin.users.edit', compact('user'));
+        $parentCompanies = ParentCompany::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('admin.users.edit', compact('user', 'parentCompanies'));
     }
 
     public function update(Request $request, User $user): RedirectResponse
@@ -62,7 +82,17 @@ class AdminUserController extends Controller
             'bankak_number' => ['nullable', 'string', 'max:255'],
             'image' => ['nullable', 'image', 'max:2048'],
             'role' => ['required', Rule::in(['admin', 'office', 'traveler'])],
+            'parent_company_id' => [
+                Rule::requiredIf(fn () => $request->input('role') === 'office'),
+                'nullable',
+                'integer',
+                'exists:parent_companies,id',
+            ],
         ]);
+
+        if (($validated['role'] ?? null) !== 'office') {
+            $validated['parent_company_id'] = null;
+        }
 
         if ($request->hasFile('image')) {
             if (! empty($user->image) && ! str_starts_with($user->image, 'http://') && ! str_starts_with($user->image, 'https://')) {

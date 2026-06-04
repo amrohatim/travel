@@ -15,9 +15,20 @@ class OfficeController extends Controller
     public function index(): JsonResponse
     {
         $offices = User::query()
+            ->with('parentCompany')
+            ->leftJoin('parent_companies', 'parent_companies.id', '=', 'users.parent_company_id')
             ->where('role', 'office')
-            ->orderBy('name')
-            ->get(['id', 'name', 'image', 'bankak_name', 'bankak_number']);
+            ->orderByRaw('CASE WHEN parent_companies.name IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('parent_companies.name')
+            ->orderBy('users.name')
+            ->get([
+                'users.id',
+                'users.name',
+                'users.image',
+                'users.bankak_name',
+                'users.bankak_number',
+                'users.parent_company_id',
+            ]);
 
         return response()->json([
             'message' => 'Offices retrieved successfully',
@@ -27,6 +38,9 @@ class OfficeController extends Controller
                 'image' => $this->imageUrl($user->image),
                 'bankak_name' => $user->bankak_name,
                 'bankak_number' => $user->bankak_number,
+                'parent_company_id' => $user->parent_company_id,
+                'parent_company_name' => $user->parentCompany?->name,
+                'parent_company_image' => $this->imageUrl($user->parentCompany?->image),
             ])->values(),
         ]);
     }
