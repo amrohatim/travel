@@ -16,6 +16,7 @@ it('allows admin to access admin pages', function () {
     $this->actingAs($admin)->get('/admin/flights')->assertOk();
     $this->actingAs($admin)->get('/admin/bookings')->assertOk();
     $this->actingAs($admin)->get('/admin/states')->assertOk();
+    $this->actingAs($admin)->get('/admin/parent-companies')->assertOk();
 });
 
 it('blocks non admin users from admin pages', function () {
@@ -25,6 +26,7 @@ it('blocks non admin users from admin pages', function () {
     $this->actingAs($traveler)->get('/admin/flights')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/bookings')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/states')->assertForbidden();
+    $this->actingAs($traveler)->get('/admin/parent-companies')->assertForbidden();
 });
 
 it('blocks non admin users from admin delete endpoints', function () {
@@ -271,6 +273,7 @@ it('admin pages render expected headings', function () {
     $this->actingAs($admin)->get('/admin/flights')->assertSeeText('Flights')->assertSeeText('Delete Selected')->assertSeeText('View Seats');
     $this->actingAs($admin)->get('/admin/bookings')->assertSeeText('Bookings')->assertSeeText('Delete Selected')->assertSeeText('View Seats');
     $this->actingAs($admin)->get('/admin/states')->assertSeeText('States');
+    $this->actingAs($admin)->get('/admin/parent-companies')->assertSeeText('Parent Companies');
 });
 
 it('admin can view flight seats details with traveler data', function () {
@@ -629,4 +632,26 @@ it('state create and image update still work', function () {
     $updateResponse->assertRedirect('/admin/states');
 
     expect($state->fresh()->image)->not->toBeNull();
+});
+
+it('parent company create and image update still work', function () {
+    Storage::fake('public');
+
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $createResponse = $this->actingAs($admin)->post('/admin/parent-companies', [
+        'name' => 'Safriat Group',
+        'image' => UploadedFile::fake()->image('company.jpg'),
+    ]);
+
+    $createResponse->assertRedirect('/admin/parent-companies');
+    $parentCompany = ParentCompany::query()->where('name', 'Safriat Group')->firstOrFail();
+
+    $updateResponse = $this->actingAs($admin)->post('/admin/parent-companies/'.$parentCompany->id.'/image', [
+        'image' => UploadedFile::fake()->image('company-2.jpg'),
+    ]);
+
+    $updateResponse->assertRedirect('/admin/parent-companies');
+
+    expect($parentCompany->fresh()->image)->not->toBeNull();
 });

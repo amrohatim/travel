@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminBookingController;
 use App\Http\Controllers\AdminFlightController;
+use App\Http\Controllers\AdminParentCompanyController;
 use App\Http\Controllers\AdminStateController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\BookingController;
@@ -47,6 +48,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/states', [AdminStateController::class, 'index'])->name('states.index');
     Route::post('/states', [AdminStateController::class, 'store'])->name('states.store');
     Route::post('/states/{state}/image', [AdminStateController::class, 'updateImage'])->name('states.image.update');
+
+    Route::get('/parent-companies', [AdminParentCompanyController::class, 'index'])->name('parent-companies.index');
+    Route::post('/parent-companies', [AdminParentCompanyController::class, 'store'])->name('parent-companies.store');
+    Route::post('/parent-companies/{parentCompany}/image', [AdminParentCompanyController::class, 'updateImage'])->name('parent-companies.image.update');
 });
 
 Route::middleware(['auth', 'role:office'])->group(function () {
