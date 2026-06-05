@@ -206,6 +206,81 @@ test('office can view and update own profile', function () {
     ]);
 });
 
+test('office can change password and login with the new password', function () {
+    $office = User::factory()->create([
+        'role' => 'office',
+        'phone' => '0911111112',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $response = $this->withHeaders(tokenHeaders($office))
+        ->postJson('/api/v1/office/password', [
+            'current_password' => 'password123',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('message', 'Office password updated successfully');
+
+    expect(Hash::check('newpassword123', $office->fresh()->password))->toBeTrue();
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $office->phone,
+        'password' => 'password123',
+    ])->assertStatus(422);
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $office->phone,
+        'password' => 'newpassword123',
+    ])->assertOk()
+        ->assertJsonPath('data.user.role', 'office');
+});
+
+test('office password change rejects wrong current password', function () {
+    $office = User::factory()->create([
+        'role' => 'office',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->postJson('/api/v1/office/password', [
+            'current_password' => 'wrong-password',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])->assertStatus(422)
+        ->assertJsonPath('message', 'Validation failed');
+});
+
+test('office password change requires matching confirmation', function () {
+    $office = User::factory()->create([
+        'role' => 'office',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->postJson('/api/v1/office/password', [
+            'current_password' => 'password123',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'differentpassword123',
+        ])->assertStatus(422)
+        ->assertJsonPath('message', 'Validation failed');
+});
+
+test('traveler cannot access office password change endpoint', function () {
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $this->withHeaders(tokenHeaders($traveler))
+        ->postJson('/api/v1/office/password', [
+            'current_password' => 'password123',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])->assertForbidden();
+});
+
 test('it lists flights and supports filtering', function () {
     $office = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
 

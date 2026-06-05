@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
@@ -119,6 +120,39 @@ class OfficeController extends Controller
         return response()->json([
             'message' => 'Office profile updated successfully',
             'data' => $this->officePayload($user->fresh()),
+        ]);
+    }
+
+    public function updatePassword(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $validator = Validator::make($request->all(), [
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $validator->after(function ($validator) use ($request, $user): void {
+            if (! Hash::check($request->string('current_password')->toString(), $user->password)) {
+                $validator->errors()->add('current_password', 'The current password is incorrect.');
+            }
+        });
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user->update([
+            'password' => $request->string('password')->toString(),
+        ]);
+
+        return response()->json([
+            'message' => 'Office password updated successfully',
+            'data' => null,
         ]);
     }
 
