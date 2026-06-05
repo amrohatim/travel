@@ -67,6 +67,40 @@ class AdminParentCompanyController extends Controller
         return redirect()->route('admin.parent-companies.index')->with('success', "Image updated for parent company {$parentCompany->name}.");
     }
 
+    public function update(Request $request, ParentCompany $parentCompany): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255', 'unique:parent_companies,name,'.$parentCompany->id],
+        ]);
+
+        $parentCompany->update([
+            'name' => $validated['name'],
+        ]);
+
+        return redirect()->route('admin.parent-companies.index')->with('success', 'Parent company updated successfully.');
+    }
+
+    public function destroy(ParentCompany $parentCompany): RedirectResponse
+    {
+        if ($parentCompany->offices()->exists()) {
+            return redirect()
+                ->route('admin.parent-companies.index')
+                ->with('error', 'Cannot delete a parent company that is assigned to office users.');
+        }
+
+        if (! empty($parentCompany->image) && ! str_starts_with($parentCompany->image, 'http://') && ! str_starts_with($parentCompany->image, 'https://')) {
+            $oldPath = ltrim($parentCompany->image, '/');
+            if (str_starts_with($oldPath, 'storage/')) {
+                $oldPath = substr($oldPath, strlen('storage/'));
+            }
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        $parentCompany->delete();
+
+        return redirect()->route('admin.parent-companies.index')->with('success', 'Parent company deleted successfully.');
+    }
+
     public function qrPreview(ParentCompany $parentCompany): Response
     {
         return $this->qrResponse($parentCompany, false);

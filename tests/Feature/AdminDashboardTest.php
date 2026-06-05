@@ -656,6 +656,53 @@ it('parent company create and image update still work', function () {
     expect($parentCompany->fresh()->image)->not->toBeNull();
 });
 
+it('admin can update a parent company name', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Old Company Name']);
+
+    $response = $this->actingAs($admin)->put('/admin/parent-companies/'.$parentCompany->id, [
+        'name' => 'New Company Name',
+    ]);
+
+    $response->assertRedirect('/admin/parent-companies');
+
+    $this->assertDatabaseHas('parent_companies', [
+        'id' => $parentCompany->id,
+        'name' => 'New Company Name',
+    ]);
+});
+
+it('admin can delete an unused parent company', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Unused Company']);
+
+    $response = $this->actingAs($admin)->delete('/admin/parent-companies/'.$parentCompany->id);
+
+    $response->assertRedirect('/admin/parent-companies');
+
+    $this->assertDatabaseMissing('parent_companies', [
+        'id' => $parentCompany->id,
+    ]);
+});
+
+it('admin cannot delete a parent company that still has office users', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Assigned Company']);
+    User::factory()->create([
+        'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
+    ]);
+
+    $response = $this->actingAs($admin)->delete('/admin/parent-companies/'.$parentCompany->id);
+
+    $response->assertRedirect('/admin/parent-companies');
+    $response->assertSessionHas('error');
+
+    $this->assertDatabaseHas('parent_companies', [
+        'id' => $parentCompany->id,
+    ]);
+});
+
 it('parent company admin page renders qr preview and download controls', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $parentCompany = ParentCompany::create(['name' => 'QR Group']);
@@ -663,6 +710,8 @@ it('parent company admin page renders qr preview and download controls', functio
     $this->actingAs($admin)
         ->get('/admin/parent-companies')
         ->assertOk()
+        ->assertSeeText('Save Name')
+        ->assertSeeText('Delete')
         ->assertSee('/admin/parent-companies/'.$parentCompany->id.'/qr', false)
         ->assertSee('/admin/parent-companies/'.$parentCompany->id.'/qr/download', false);
 });

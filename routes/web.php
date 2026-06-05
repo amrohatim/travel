@@ -57,6 +57,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     Route::get('/parent-companies', [AdminParentCompanyController::class, 'index'])->name('parent-companies.index');
     Route::post('/parent-companies', [AdminParentCompanyController::class, 'store'])->name('parent-companies.store');
+    Route::put('/parent-companies/{parentCompany}', [AdminParentCompanyController::class, 'update'])->name('parent-companies.update');
+    Route::delete('/parent-companies/{parentCompany}', [AdminParentCompanyController::class, 'destroy'])->name('parent-companies.destroy');
     Route::post('/parent-companies/{parentCompany}/image', [AdminParentCompanyController::class, 'updateImage'])->name('parent-companies.image.update');
     Route::get('/parent-companies/{parentCompany}/qr', [AdminParentCompanyController::class, 'qrPreview'])->name('parent-companies.qr.preview');
     Route::get('/parent-companies/{parentCompany}/qr/download', [AdminParentCompanyController::class, 'downloadQr'])->name('parent-companies.qr.download');

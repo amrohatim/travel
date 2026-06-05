@@ -3,6 +3,14 @@
 @section('content')
 <h1 class="h4 mb-4">Parent Companies</h1>
 
+@if (session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
+@endif
+
+@if (session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
+@endif
+
 <div class="row g-4">
     <div class="col-12 col-lg-5">
         <div class="panel">
@@ -49,30 +57,33 @@
                                 <th>Image</th>
                                 <th>QR Code</th>
                                 <th>Update Image</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($parentCompanies as $parentCompany)
-                                @php
-                                    $imageUrl = $parentCompany->image;
-                                    if ($imageUrl && !str_starts_with($imageUrl, 'http://') && !str_starts_with($imageUrl, 'https://')) {
-                                        $cleanPath = ltrim($imageUrl, '/');
-                                        if (str_starts_with($cleanPath, 'storage/')) {
-                                            $imageUrl = url($cleanPath);
-                                        } else {
-                                            $imageUrl = url('storage/'.$cleanPath);
-                                        }
-                                    }
-                                @endphp
                                 <tr>
                                     <td>{{ $parentCompany->id }}</td>
-                                    <td>{{ $parentCompany->name }}</td>
+                                    <td>
+                                        <form method="POST" action="{{ route('admin.parent-companies.update', $parentCompany) }}" class="d-flex flex-column gap-2">
+                                            @csrf
+                                            @method('PUT')
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm"
+                                                name="name"
+                                                value="{{ old('name', $parentCompany->name) }}"
+                                                required
+                                            >
+                                            <button type="submit" class="btn btn-sm btn-outline-mono">Save Name</button>
+                                        </form>
+                                    </td>
                                     <td>
                                         @if ($parentCompany->image)
                                             <div class="mb-1">
-                                                <img src="{{ $imageUrl }}" alt="{{ $parentCompany->name }}" style="width: 64px; height: 64px; object-fit: cover; border: 1px solid #000;">
+                                                <img src="{{ $parentCompany->imageUrl() }}" alt="{{ $parentCompany->name }}" style="width: 64px; height: 64px; object-fit: cover; border: 1px solid #000;">
                                             </div>
-                                            <a href="{{ $imageUrl }}" target="_blank" class="text-dark">Open</a>
+                                            <a href="{{ $parentCompany->imageUrl() }}" target="_blank" class="text-dark">Open</a>
                                         @else
                                             <span class="text-secondary">No image</span>
                                         @endif
@@ -89,6 +100,13 @@
                                             @csrf
                                             <input type="file" class="form-control form-control-sm" name="image" accept="image/*" required>
                                             <button type="submit" class="btn btn-sm btn-outline-mono">Save</button>
+                                        </form>
+                                    </td>
+                                    <td>
+                                        <form method="POST" action="{{ route('admin.parent-companies.destroy', $parentCompany) }}" onsubmit="return confirm('Delete this parent company?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                                         </form>
                                     </td>
                                 </tr>
