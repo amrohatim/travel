@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\FlightController;
 use App\Http\Controllers\Api\NotificationTokenController;
 use App\Http\Controllers\Api\OfficeController;
 use App\Http\Controllers\Api\StateController;
+use App\Http\Controllers\Api\AppVersionController;
+
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -46,4 +48,5 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/admin/states', [StateController::class, 'store']);
         });
     });
+    Route::get('/getAppVersion', [AppVersionController::class, 'getVersion']);
 });

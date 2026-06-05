@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'FLUTTER_APP_VERSION'=>env('FLUTTER_APP_VERSION'),
+
 ];
