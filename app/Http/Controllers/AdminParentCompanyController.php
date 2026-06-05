@@ -79,15 +79,17 @@ class AdminParentCompanyController extends Controller
 
     private function qrResponse(ParentCompany $parentCompany, bool $download): Response
     {
-        $result = Builder::create()
-            ->writer(new PngWriter())
-            ->data($parentCompany->publicUrl())
-            ->encoding(new Encoding('UTF-8'))
-            ->errorCorrectionLevel(ErrorCorrectionLevel::High)
-            ->size(420)
-            ->margin(16)
-            ->roundBlockSizeMode(RoundBlockSizeMode::Margin)
-            ->build();
+        $result = (new Builder(
+            writer: new PngWriter(),
+            writerOptions: [],
+            validateResult: false,
+            data: $parentCompany->publicUrl(),
+            encoding: new Encoding('UTF-8'),
+            errorCorrectionLevel: ErrorCorrectionLevel::High,
+            size: 420,
+            margin: 16,
+            roundBlockSizeMode: RoundBlockSizeMode::Margin,
+        ))->build();
 
         $response = response($result->getString(), 200, [
             'Content-Type' => 'image/png',
