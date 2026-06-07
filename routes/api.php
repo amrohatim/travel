@@ -20,6 +20,8 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/offices', [OfficeController::class, 'index']);
+        Route::post('/notifications/token', [NotificationTokenController::class, 'store']);
+        Route::delete('/notifications/token', [NotificationTokenController::class, 'destroy']);
 
         Route::middleware('role:office')->group(function (): void {
             Route::get('/office/profile', [OfficeController::class, 'profile']);
@@ -34,8 +36,6 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/office/bookings', [BookingController::class, 'officeBookings']);
             Route::get('/office/bookings/summary', [BookingController::class, 'officeBookingsSummary']);
             Route::patch('/office/bookings/{booking}/status', [BookingController::class, 'updateStatus']);
-            Route::post('/office/notifications/token', [NotificationTokenController::class, 'store']);
-            Route::delete('/office/notifications/token', [NotificationTokenController::class, 'destroy']);
         });
 
         Route::middleware('role:traveler')->group(function (): void {

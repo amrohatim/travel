@@ -11,68 +11,59 @@ class FcmNotificationService
 {
     public function sendNewBookingToOffice(Booking $booking): void
     {
-        $token = UserDeviceToken::where('user_id', $booking->office_id)
-            ->latest('id')
-            ->value('fcm_token');
-
-        if (! $token) {
-            return;
-        }
-
-        $accessToken = $this->getAccessToken();
-        if (! $accessToken) {
-            Log::warning('FCM access token could not be resolved.');
-            return;
-        }
-
-        $projectId = (string) config('services.firebase.project_id');
-        if ($projectId === '') {
-            Log::warning('Firebase project ID is missing.');
-            return;
-        }
-
-        $url = 'https://fcm.googleapis.com/v1/projects/'.$projectId.'/messages:send';
-        $response = Http::withToken($accessToken)
-            ->acceptJson()
-            ->post($url, [
-                'message' => [
-                    'token' => $token,
-                    'notification' => [
-                        'title' => 'حجز جديد',
-                        'body' => 'تم استلام طلب حجز جديد يحتاج للمراجعة.',
-                    ],
-                    'data' => [
-                        'type' => 'new_booking',
-                        'booking_id' => (string) $booking->id,
-                        'flight_id' => (string) $booking->flight_id,
-                    ],
-                    'android' => [
-                        'priority' => 'HIGH',
-                        'notification' => [
-                            'channel_id' => 'booking_alerts',
-                            'sound' => 'default',
-                            'default_vibrate_timings' => true,
-                            'notification_priority' => 'PRIORITY_MAX',
-                        ],
-                    ],
+        $this->sendToUser(
+            userId: (int) $booking->office_id,
+            payload: [
+                'notification' => [
+                    'title' => 'حجز جديد',
+                    'body' => 'تم استلام طلب حجز جديد يحتاج للمراجعة.',
                 ],
-            ]);
+                'data' => [
+                    'type' => 'new_booking',
+                    'booking_id' => (string) $booking->id,
+                    'flight_id' => (string) $booking->flight_id,
+                ],
+                'android_notification' => [],
+            ],
+            logContext: [
+                'booking_id' => $booking->id,
+                'office_id' => $booking->office_id,
+            ],
+        );
+    }
 
-        if ($response->successful()) {
-            return;
+    public function sendBookingConfirmedToTraveler(Booking $booking): void
+    {
+        $officeName = trim((string) data_get($booking, 'flight.office_name', ''));
+        if ($officeName === '') {
+            $officeName = 'المكتب';
         }
 
-        if ($this->isInvalidTokenError($response->json())) {
-            UserDeviceToken::where('fcm_token', $token)->delete();
-            return;
-        }
+        $imageUrl = url('assets/confirm-ticket.png');
 
-        Log::warning('FCM send failed.', [
-            'status' => $response->status(),
-            'body' => $response->json(),
-            'booking_id' => $booking->id,
-            'office_id' => $booking->office_id,
-        ]);
+        $this->sendToUser(
+            userId: (int) $booking->traveler_id,
+            payload: [
+                'notification' => [
+                    'title' => 'تم تاكيد الحجز',
+                    'body' => 'تم تاكيد حجزك من قبل '.$officeName."\n".'يرجى الضغط هنا و تحميل تذكرتك',
+                    'image' => $imageUrl,
+                ],
+                'data' => [
+                    'type' => 'booking_confirmed',
+                    'booking_id' => (string) $booking->id,
+                    'flight_id' => (string) $booking->flight_id,
+                    'image_url' => $imageUrl,
+                ],
+                'android_notification' => [
+                    'image' => $imageUrl,
+                ],
+            ],
+            logContext: [
+                'booking_id' => $booking->id,
+                'traveler_id' => $booking->traveler_id,
+            ],
+        );
     }
 
     private function getAccessToken(): ?string
@@ -203,5 +194,62 @@ class FcmNotificationService
         }
 
         return false;
+    }
+
+    private function sendToUser(int $userId, array $payload, array $logContext): void
+    {
+        $token = UserDeviceToken::where('user_id', $userId)
+            ->latest('id')
+            ->value('fcm_token');
+
+        if (! $token) {
+            return;
+        }
+
+        $accessToken = $this->getAccessToken();
+        if (! $accessToken) {
+            Log::warning('FCM access token could not be resolved.');
+            return;
+        }
+
+        $projectId = (string) config('services.firebase.project_id');
+        if ($projectId === '') {
+            Log::warning('Firebase project ID is missing.');
+            return;
+        }
+
+        $url = 'https://fcm.googleapis.com/v1/projects/'.$projectId.'/messages:send';
+        $response = Http::withToken($accessToken)
+            ->acceptJson()
+            ->post($url, [
+                'message' => [
+                    'token' => $token,
+                    'notification' => $payload['notification'],
+                    'data' => $payload['data'],
+                    'android' => [
+                        'priority' => 'HIGH',
+                        'notification' => array_merge([
+                            'channel_id' => 'booking_alerts',
+                            'sound' => 'default',
+                            'default_vibrate_timings' => true,
+                            'notification_priority' => 'PRIORITY_MAX',
+                        ], $payload['android_notification']),
+                    ],
+                ],
+            ]);
+
+        if ($response->successful()) {
+            return;
+        }
+
+        if ($this->isInvalidTokenError($response->json())) {
+            UserDeviceToken::where('fcm_token', $token)->delete();
+            return;
+        }
+
+        Log::warning('FCM send failed.', array_merge([
+            'status' => $response->status(),
+            'body' => $response->json(),
+        ], $logContext));
     }
 }

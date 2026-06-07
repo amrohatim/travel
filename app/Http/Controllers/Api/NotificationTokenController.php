@@ -28,7 +28,7 @@ class NotificationTokenController extends Controller
         $token = $request->string('token')->toString();
         $platform = $request->string('platform')->toString();
 
-        // Keep exactly one active token per office user.
+        // Keep exactly one active token per user.
         UserDeviceToken::where('user_id', $userId)
             ->where('fcm_token', '!=', $token)
             ->delete();

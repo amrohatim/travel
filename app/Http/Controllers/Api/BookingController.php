@@ -180,11 +180,26 @@ class BookingController extends Controller
             ], 403);
         }
 
+        $previousStatus = (string) $booking->status;
+        $newStatus = $request->string('status')->toString();
+
         $booking->update([
-            'status' => $request->string('status')->toString(),
+            'status' => $newStatus,
         ]);
 
         $booking->load('flight');
+
+        if ($previousStatus !== 'confirmed' && $newStatus === 'confirmed') {
+            try {
+                app(FcmNotificationService::class)->sendBookingConfirmedToTraveler($booking);
+            } catch (\Throwable $exception) {
+                Log::warning('Sending traveler booking confirmation notification failed.', [
+                    'booking_id' => $booking->id,
+                    'traveler_id' => $booking->traveler_id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
 
         return response()->json([
             'message' => 'Booking status updated successfully',
