@@ -338,6 +338,76 @@ test('office can create flight and travel date is derived from departure time', 
     ]);
 });
 
+test('office can create future weekly flights and receives created dates', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Future']);
+
+    $response = $this->withHeaders(tokenHeaders($office))
+        ->postJson('/api/v1/office/flights/future', [
+            'from' => 'Dubai',
+            'to' => 'Riyadh',
+            'departure_time' => '2026-06-01 15:45:00',
+            'price' => 300,
+            'seats' => 30,
+            'days_ahead' => 30,
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('message', 'Future flights processed successfully')
+        ->assertJsonPath('data.created_count', 4)
+        ->assertJsonPath('data.skipped_count', 0)
+        ->assertJsonPath('data.created_dates.0', '2026-06-08')
+        ->assertJsonPath('data.created_dates.3', '2026-06-29');
+
+    $this->assertDatabaseHas('flights', [
+        'office_id' => $office->id,
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-06-08',
+        'departure_time' => '2026-06-08 15:45:00',
+    ]);
+});
+
+test('future flight creation skips duplicates and still creates remaining weekly flights', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Future']);
+
+    Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-06-15',
+        'departure_time' => '2026-06-15 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $response = $this->withHeaders(tokenHeaders($office))
+        ->postJson('/api/v1/office/flights/future', [
+            'from' => 'Dubai',
+            'to' => 'Riyadh',
+            'departure_time' => '2026-06-01 15:45:00',
+            'price' => 300,
+            'seats' => 30,
+            'days_ahead' => 30,
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('data.created_count', 3)
+        ->assertJsonPath('data.skipped_count', 1)
+        ->assertJsonPath('data.skipped_dates.0', '2026-06-15');
+
+    $this->assertDatabaseHas('flights', [
+        'office_id' => $office->id,
+        'travel_date' => '2026-06-08',
+        'departure_time' => '2026-06-08 15:45:00',
+    ]);
+    $this->assertDatabaseHas('flights', [
+        'office_id' => $office->id,
+        'travel_date' => '2026-06-22',
+        'departure_time' => '2026-06-22 15:45:00',
+    ]);
+});
+
 test('traveler cannot access office flight creation endpoint', function () {
     $traveler = User::factory()->create([
         'role' => 'traveler',
@@ -350,6 +420,22 @@ test('traveler cannot access office flight creation endpoint', function () {
         'departure_time' => '2026-06-01 15:45:00',
         'price' => 300,
         'seats' => 30,
+    ])->assertForbidden();
+});
+
+test('traveler cannot access future office flight creation endpoint', function () {
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'phone' => '0999999998',
+    ]);
+
+    $this->withHeaders(tokenHeaders($traveler))->postJson('/api/v1/office/flights/future', [
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'departure_time' => '2026-06-01 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'days_ahead' => 30,
     ])->assertForbidden();
 });
 

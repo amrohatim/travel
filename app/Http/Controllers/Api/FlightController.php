@@ -64,6 +64,88 @@ class FlightController extends Controller
         ], 201);
     }
 
+    public function storeFuture(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'from' => ['required', 'string', 'max:255'],
+            'to' => ['required', 'string', 'max:255'],
+            'departure_time' => ['required', 'date'],
+            'price' => ['required', 'integer', 'min:0'],
+            'seats' => ['required', 'integer', 'min:1'],
+            'days_ahead' => ['required', 'integer', 'in:30,60,90'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $baseDepartureTime = Carbon::parse($request->input('departure_time'));
+        $daysAhead = (int) $request->input('days_ahead');
+        $horizon = $baseDepartureTime->copy()->addDays($daysAhead);
+        $from = $request->string('from')->toString();
+        $to = $request->string('to')->toString();
+        $price = (int) $request->input('price');
+        $seats = (int) $request->input('seats');
+        $officeId = (int) $request->user()->id;
+        $officeName = $request->user()->name;
+
+        $createdFlights = [];
+        $createdDates = [];
+        $skippedDates = [];
+
+        for (
+            $candidate = $baseDepartureTime->copy()->addDays(7);
+            $candidate->lessThanOrEqualTo($horizon);
+            $candidate->addDays(7)
+        ) {
+            $candidateDate = $candidate->toDateString();
+            $candidateDateTime = $candidate->toDateTimeString();
+
+            $exists = Flight::query()
+                ->where('office_id', $officeId)
+                ->where('from', $from)
+                ->where('to', $to)
+                ->whereDate('travel_date', $candidateDate)
+                ->where('departure_time', $candidateDateTime)
+                ->exists();
+
+            if ($exists) {
+                $skippedDates[] = $candidateDate;
+                continue;
+            }
+
+            $flight = Flight::create([
+                'from' => $from,
+                'to' => $to,
+                'travel_date' => $candidateDate,
+                'departure_time' => $candidateDateTime,
+                'price' => $price,
+                'seats' => $seats,
+                'office_id' => $officeId,
+                'office_name' => $officeName,
+            ]);
+
+            $createdFlights[] = $flight;
+            $createdDates[] = $candidateDate;
+        }
+
+        return response()->json([
+            'message' => 'Future flights processed successfully',
+            'data' => [
+                'created_dates' => $createdDates,
+                'skipped_dates' => $skippedDates,
+                'created_count' => count($createdDates),
+                'skipped_count' => count($skippedDates),
+                'flights' => collect($createdFlights)->map(
+                    fn (Flight $flight) => $this->flightPayload($flight)
+                )->values(),
+            ],
+        ]);
+    }
+
     public function update(Request $request, Flight $flight): JsonResponse
     {
         if ((int) $flight->office_id !== (int) $request->user()->id) {
