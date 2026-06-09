@@ -158,6 +158,8 @@ class OfficeController extends Controller
 
     private function officePayload(User $user): array
     {
+        $user->loadMissing('state');
+
         return [
             'id' => $user->id,
             'name' => $user->name,
@@ -165,6 +167,8 @@ class OfficeController extends Controller
             'image' => $this->imageUrl($user->image),
             'bankak_name' => $user->bankak_name,
             'bankak_number' => $user->bankak_number,
+            'state_id' => $user->state_id,
+            'state_name' => $user->state?->name,
         ];
     }
 

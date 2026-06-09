@@ -20,6 +20,7 @@
                         <th>Bankak Name</th>
                         <th>Bankak Number</th>
                         <th>Parent Company</th>
+                        <th>State</th>
                         <th>Role</th>
                         <th>Created</th>
                         <th class="text-end">Actions</th>
@@ -47,6 +48,7 @@
                             <td>{{ $user->bankak_name ?: '-' }}</td>
                             <td>{{ $user->bankak_number ?: '-' }}</td>
                             <td>{{ $user->role === 'office' ? ($user->parentCompany?->name ?: '-') : '-' }}</td>
+                            <td>{{ $user->role === 'office' ? ($user->state?->name ?: '-') : '-' }}</td>
                             <td>{{ $user->role }}</td>
                             <td>{{ $user->created_at?->format('Y-m-d H:i') }}</td>
                             <td class="text-end">

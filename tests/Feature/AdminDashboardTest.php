@@ -90,6 +90,7 @@ it('blocks non admin users from admin seats endpoints', function () {
 it('admin can create a user', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $parentCompany = ParentCompany::create(['name' => 'Created Group']);
+    $state = State::create(['name' => 'Khartoum']);
 
     $response = $this->actingAs($admin)->post('/admin/users', [
         'name' => 'Created User',
@@ -97,6 +98,7 @@ it('admin can create a user', function () {
         'phone' => '1234567',
         'role' => 'office',
         'parent_company_id' => $parentCompany->id,
+        'state_id' => $state->id,
         'password' => 'secret123',
         'password_confirmation' => 'secret123',
     ]);
@@ -109,6 +111,7 @@ it('admin can create a user', function () {
         'phone' => '1234567',
         'role' => 'office',
         'parent_company_id' => $parentCompany->id,
+        'state_id' => $state->id,
     ]);
 });
 
@@ -169,6 +172,7 @@ it('admin can create a non-office user without a parent company', function () {
 it('admin can update a user', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $parentCompany = ParentCompany::create(['name' => 'Updated Group']);
+    $state = State::create(['name' => 'Gezira']);
     $user = User::factory()->create(['role' => 'traveler', 'phone' => '4444']);
 
     $response = $this->actingAs($admin)->put('/admin/users/'.$user->id, [
@@ -177,6 +181,7 @@ it('admin can update a user', function () {
         'phone' => '5555',
         'role' => 'office',
         'parent_company_id' => $parentCompany->id,
+        'state_id' => $state->id,
     ]);
 
     $response->assertRedirect('/admin/users');
@@ -188,6 +193,7 @@ it('admin can update a user', function () {
         'phone' => '5555',
         'role' => 'office',
         'parent_company_id' => $parentCompany->id,
+        'state_id' => $state->id,
     ]);
 });
 
@@ -230,6 +236,31 @@ it('admin can remove office company by changing role to traveler', function () {
         'id' => $user->id,
         'role' => 'traveler',
         'parent_company_id' => null,
+        'state_id' => null,
+    ]);
+});
+
+it('admin can create an office without a state because state is nullable', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Nullable State Group']);
+
+    $response = $this->actingAs($admin)->post('/admin/users', [
+        'name' => 'Office Without State',
+        'email' => 'office-without-state@example.com',
+        'phone' => '1234568',
+        'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
+        'password' => 'secret123',
+        'password_confirmation' => 'secret123',
+    ]);
+
+    $response->assertRedirect('/admin/users');
+
+    $this->assertDatabaseHas('users', [
+        'email' => 'office-without-state@example.com',
+        'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
+        'state_id' => null,
     ]);
 });
 

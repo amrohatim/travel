@@ -44,6 +44,16 @@
             </select>
         </div>
 
+        <div class="col-md-6" id="state-field" @if (old('role') !== 'office') style="display: none;" @endif>
+            <label class="form-label">State</label>
+            <select name="state_id" class="form-select" id="state-select">
+                <option value="">Select state</option>
+                @foreach ($states as $state)
+                    <option value="{{ $state->id }}" @selected((string) old('state_id') === (string) $state->id)>{{ $state->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
         <div class="col-md-6">
             <label class="form-label">Email</label>
             <input type="email" name="email" class="form-control" value="{{ old('email') }}">
@@ -90,14 +100,18 @@
         const roleSelect = document.getElementById('role-select');
         const parentCompanyField = document.getElementById('parent-company-field');
         const parentCompanySelect = document.getElementById('parent-company-select');
+        const stateField = document.getElementById('state-field');
+        const stateSelect = document.getElementById('state-select');
 
         const syncParentCompanyField = () => {
             const isOffice = roleSelect.value === 'office';
             parentCompanyField.style.display = isOffice ? '' : 'none';
+            stateField.style.display = isOffice ? '' : 'none';
             parentCompanySelect.required = isOffice;
 
             if (!isOffice) {
                 parentCompanySelect.value = '';
+                stateSelect.value = '';
             }
         };
 

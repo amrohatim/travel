@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ParentCompany;
+use App\Models\State;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ class AdminUserController extends Controller
     public function index(): View
     {
         $users = User::query()
-            ->with('parentCompany')
+            ->with(['parentCompany', 'state'])
             ->orderByDesc('created_at')
             ->paginate(15);
 
@@ -27,8 +28,11 @@ class AdminUserController extends Controller
         $parentCompanies = ParentCompany::query()
             ->orderBy('name')
             ->get(['id', 'name']);
+        $states = State::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        return view('admin.users.create', compact('parentCompanies'));
+        return view('admin.users.create', compact('parentCompanies', 'states'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -47,11 +51,17 @@ class AdminUserController extends Controller
                 'integer',
                 'exists:parent_companies,id',
             ],
+            'state_id' => [
+                'nullable',
+                'integer',
+                'exists:states,id',
+            ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         if (($validated['role'] ?? null) !== 'office') {
             $validated['parent_company_id'] = null;
+            $validated['state_id'] = null;
         }
 
         if ($request->hasFile('image')) {
@@ -68,8 +78,11 @@ class AdminUserController extends Controller
         $parentCompanies = ParentCompany::query()
             ->orderBy('name')
             ->get(['id', 'name']);
+        $states = State::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        return view('admin.users.edit', compact('user', 'parentCompanies'));
+        return view('admin.users.edit', compact('user', 'parentCompanies', 'states'));
     }
 
     public function update(Request $request, User $user): RedirectResponse
@@ -88,10 +101,16 @@ class AdminUserController extends Controller
                 'integer',
                 'exists:parent_companies,id',
             ],
+            'state_id' => [
+                'nullable',
+                'integer',
+                'exists:states,id',
+            ],
         ]);
 
         if (($validated['role'] ?? null) !== 'office') {
             $validated['parent_company_id'] = null;
+            $validated['state_id'] = null;
         }
 
         if ($request->hasFile('image')) {

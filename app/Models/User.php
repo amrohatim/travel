@@ -30,6 +30,7 @@ class User extends Authenticatable
         'password',
         'role',
         'parent_company_id',
+        'state_id',
     ];
 
 
@@ -64,5 +65,10 @@ class User extends Authenticatable
     public function parentCompany(): BelongsTo
     {
         return $this->belongsTo(ParentCompany::class);
+    }
+
+    public function state(): BelongsTo
+    {
+        return $this->belongsTo(State::class);
     }
 }
