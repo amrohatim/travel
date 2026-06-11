@@ -172,22 +172,64 @@ class BookingController extends Controller
             ], 422);
         }
 
-        $booking->loadMissing('flight');
-
-        if ((int) $booking->flight->office_id !== (int) $request->user()->id) {
-            return response()->json([
-                'message' => 'Forbidden',
-            ], 403);
-        }
-
-        $previousStatus = (string) $booking->status;
         $newStatus = $request->string('status')->toString();
+        $previousStatus = null;
 
-        $booking->update([
-            'status' => $newStatus,
-        ]);
+        try {
+            $booking = DB::transaction(function () use ($booking, $newStatus, $request, &$previousStatus): Booking {
+                $lockedBooking = Booking::query()
+                    ->lockForUpdate()
+                    ->firstWhere('id', $booking->id);
 
-        $booking->load('flight');
+                if (! $lockedBooking) {
+                    abort(404);
+                }
+
+                $lockedFlight = Flight::query()
+                    ->lockForUpdate()
+                    ->firstWhere('id', $lockedBooking->flight_id);
+
+                if (! $lockedFlight) {
+                    abort(404);
+                }
+
+                if ((int) $lockedFlight->office_id !== (int) $request->user()->id) {
+                    abort(response()->json([
+                        'message' => 'Forbidden',
+                    ], 403));
+                }
+
+                $previousStatus = (string) $lockedBooking->status;
+                $seatDelta = (int) $lockedBooking->seats_booked;
+
+                if ($previousStatus !== 'rejected' && $newStatus === 'rejected') {
+                    $lockedFlight->increment('seats', $seatDelta);
+                } elseif ($previousStatus === 'rejected' && $newStatus !== 'rejected') {
+                    if ($seatDelta > (int) $lockedFlight->seats) {
+                        throw new \RuntimeException('insufficient_seats_for_status_change');
+                    }
+
+                    $lockedFlight->decrement('seats', $seatDelta);
+                }
+
+                $lockedBooking->update([
+                    'status' => $newStatus,
+                ]);
+
+                return $lockedBooking->fresh(['flight']);
+            });
+        } catch (\RuntimeException $exception) {
+            if ($exception->getMessage() === 'insufficient_seats_for_status_change') {
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'status' => ['Not enough seats available to reactivate this booking.'],
+                    ],
+                ], 422);
+            }
+
+            throw $exception;
+        }
 
         if ($previousStatus !== 'confirmed' && $newStatus === 'confirmed') {
             try {

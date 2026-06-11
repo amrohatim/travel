@@ -562,6 +562,206 @@ test('office sees only own bookings and can only update own booking status', fun
         ])->assertForbidden();
 });
 
+test('pending to rejected restores booked seats to the flight', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Restore']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Jeddah',
+        'travel_date' => '2026-09-03',
+        'departure_time' => '2026-09-03 08:00:00',
+        'price' => 200,
+        'seats' => 52,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 3,
+        'total' => 600,
+        'status' => 'pending',
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/bookings/'.$booking->id.'/status', [
+            'status' => 'rejected',
+        ])->assertOk()
+        ->assertJsonPath('data.status', 'rejected');
+
+    expect($flight->fresh()->seats)->toBe(55);
+});
+
+test('confirmed to rejected restores booked seats to the flight', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Restore']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Cairo',
+        'travel_date' => '2026-09-04',
+        'departure_time' => '2026-09-04 09:00:00',
+        'price' => 250,
+        'seats' => 10,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 500,
+        'status' => 'confirmed',
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/bookings/'.$booking->id.'/status', [
+            'status' => 'rejected',
+        ])->assertOk()
+        ->assertJsonPath('data.status', 'rejected');
+
+    expect($flight->fresh()->seats)->toBe(12);
+});
+
+test('rejected to pending re-consumes seats from the flight', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Restore']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Doha',
+        'travel_date' => '2026-09-05',
+        'departure_time' => '2026-09-05 10:00:00',
+        'price' => 180,
+        'seats' => 9,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 3,
+        'total' => 540,
+        'status' => 'rejected',
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/bookings/'.$booking->id.'/status', [
+            'status' => 'pending',
+        ])->assertOk()
+        ->assertJsonPath('data.status', 'pending');
+
+    expect($flight->fresh()->seats)->toBe(6);
+});
+
+test('rejected to confirmed re-consumes seats from the flight', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Restore']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-09-06',
+        'departure_time' => '2026-09-06 11:00:00',
+        'price' => 220,
+        'seats' => 7,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 440,
+        'status' => 'rejected',
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/bookings/'.$booking->id.'/status', [
+            'status' => 'confirmed',
+        ])->assertOk()
+        ->assertJsonPath('data.status', 'confirmed');
+
+    expect($flight->fresh()->seats)->toBe(5);
+});
+
+test('rejected to active status returns validation error when seats are unavailable', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Restore']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Muscat',
+        'travel_date' => '2026-09-07',
+        'departure_time' => '2026-09-07 12:00:00',
+        'price' => 190,
+        'seats' => 1,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 380,
+        'status' => 'rejected',
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/bookings/'.$booking->id.'/status', [
+            'status' => 'pending',
+        ])->assertStatus(422)
+        ->assertJsonPath('message', 'Validation failed')
+        ->assertJsonPath('errors.status.0', 'Not enough seats available to reactivate this booking.');
+
+    expect($flight->fresh()->seats)->toBe(1);
+    expect($booking->fresh()->status)->toBe('rejected');
+});
+
+test('repeated rejected status does not change seats again', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Restore']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Bahrain',
+        'travel_date' => '2026-09-08',
+        'departure_time' => '2026-09-08 13:00:00',
+        'price' => 210,
+        'seats' => 6,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 420,
+        'status' => 'rejected',
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/bookings/'.$booking->id.'/status', [
+            'status' => 'rejected',
+        ])->assertOk()
+        ->assertJsonPath('data.status', 'rejected');
+
+    expect($flight->fresh()->seats)->toBe(6);
+});
+
 test('office bookings summary returns total and seats sums excluding rejected and non-demanded bookings', function () {
     $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
     $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);

@@ -324,6 +324,63 @@ test('non-confirmed booking status changes do not send traveler notification', f
     Http::assertNothingSent();
 });
 
+test('rejected to confirmed sends traveler confirmation notification once', function () {
+    configureFirebaseForTests();
+
+    Http::fake([
+        'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'oauth-token'], 200),
+        'https://fcm.googleapis.com/v1/projects/test-project/messages:send' => Http::response(['name' => 'projects/test/messages/1'], 200),
+    ]);
+
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Push']);
+    $traveler = User::factory()->create(['role' => 'traveler', 'name' => 'Traveler Push']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Kuwait',
+        'travel_date' => '2026-12-11',
+        'departure_time' => '2026-12-11 10:00:00',
+        'price' => 300,
+        'seats' => 3,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = \App\Models\Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 300,
+        'status' => 'rejected',
+    ]);
+
+    UserDeviceToken::create([
+        'user_id' => $traveler->id,
+        'fcm_token' => 'traveler-device-token',
+        'platform' => 'android',
+    ]);
+
+    $this->withHeaders(notificationAuthHeaders($office))
+        ->patchJson('/api/v1/office/bookings/'.$booking->id.'/status', [
+            'status' => 'confirmed',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.status', 'confirmed');
+
+    Http::assertSentCount(2);
+    Http::assertSent(function ($request): bool {
+        if (! str_contains($request->url(), '/messages:send')) {
+            return false;
+        }
+
+        $data = $request->data();
+
+        return data_get($data, 'message.token') === 'traveler-device-token'
+            && data_get($data, 'message.data.type') === 'booking_confirmed';
+    });
+});
+
 test('invalid traveler fcm token is removed after booking confirmation notification failure', function () {
     configureFirebaseForTests();
 
