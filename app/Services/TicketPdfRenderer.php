@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Booking;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Log;
 use Spatie\Browsershot\Browsershot;
 use Throwable;
 
@@ -15,17 +16,37 @@ class TicketPdfRenderer
 
         try {
             return $this->browsershot($html)->pdf();
-        } catch (Throwable) {
-            return Pdf::loadView('traveler.ticket', compact('booking'))->output();
+        } catch (Throwable $browsershotException) {
+            Log::error('Ticket PDF Browsershot render failed.', [
+                'booking_id' => $booking->id,
+                'message' => $browsershotException->getMessage(),
+            ]);
+
+            try {
+                return Pdf::loadView('traveler.ticket', compact('booking'))->output();
+            } catch (Throwable $dompdfException) {
+                Log::error('Ticket PDF DomPDF fallback failed.', [
+                    'booking_id' => $booking->id,
+                    'message' => $dompdfException->getMessage(),
+                ]);
+
+                throw $dompdfException;
+            }
         }
     }
 
     private function browsershot(string $html): Browsershot
     {
+        $tempPath = storage_path('app/browsershot');
+
+        if (! is_dir($tempPath)) {
+            mkdir($tempPath, 0755, true);
+        }
+
         $browsershot = Browsershot::html($html)
             ->setNodeModulePath(base_path('node_modules'))
             ->setBinPath(base_path('bin/browsershot.cjs'))
-            ->setCustomTempPath(storage_path('app/browsershot'))
+            ->setCustomTempPath($tempPath)
             ->format('A4')
             ->margins(0, 0, 0, 0)
             ->showBackground()
@@ -48,6 +69,7 @@ class TicketPdfRenderer
     {
         $candidates = array_filter([
             env('BROWSERSHOT_NODE_BINARY'),
+            '/usr/bin/node',
             'C:\\Program Files\\nodejs\\node.exe',
             'C:\\Users\\ACER NITRO V15\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe',
         ]);
@@ -65,6 +87,10 @@ class TicketPdfRenderer
     {
         $candidates = array_filter([
             env('BROWSERSHOT_CHROME_PATH'),
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
             'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
             'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
             'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
