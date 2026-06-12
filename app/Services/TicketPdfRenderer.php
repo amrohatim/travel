@@ -51,6 +51,11 @@ class TicketPdfRenderer
         $officeName = $booking->flight?->office_name ?? '';
         $seatCount = (int) $booking->seats_booked;
         $totalAmount = number_format((int) $booking->total, 0).' SDG';
+        $seatNames = $booking->relationLoaded('seats')
+            ? $booking->seats->pluck('traveler_name')->filter()->values()->all()
+            : [];
+        $firstPageSeatNames = array_slice($seatNames, 0, 4);
+        $remainingSeatNames = array_slice($seatNames, 4);
 
         $pdf->SetFillColor(236, 233, 230);
         $pdf->Rect(0, 0, 210, 297, 'F');
@@ -119,17 +124,12 @@ class TicketPdfRenderer
         $y = 232;
         $pdf->SetFont('cairopdf', '', 14);
         $pdf->SetTextColor(118, 123, 130);
-        $seats = $booking->relationLoaded('seats') ? $booking->seats : collect();
-        if ($seats->isEmpty()) {
+        if ($firstPageSeatNames === []) {
             $this->writeTextBox($pdf, 20, $y, 170, 8, 'لا توجد أسماء مسجلة', 'R');
             $y += 8;
         } else {
-            foreach ($seats as $seat) {
-                if ($y > 250) {
-                    break;
-                }
-
-                $this->writeTextBox($pdf, 20, $y, 170, 8, $seat->traveler_name, 'R');
+            foreach ($firstPageSeatNames as $travelerName) {
+                $this->writeTextBox($pdf, 20, $y, 170, 8, $travelerName, 'R');
                 $y += 8;
             }
         }
@@ -148,6 +148,52 @@ class TicketPdfRenderer
         $pdf->SetTextColor(34, 52, 68);
         $pdf->SetFont('cairopdf', 'B', 7);
         $this->writeTextBox($pdf, 160, 279, 32, 8, 'معك في كل الرحلات', 'C');
+
+        $this->drawPassengerOverflowPages($pdf, $remainingSeatNames);
+    }
+
+    private function drawPassengerOverflowPages(Mpdf $pdf, array $remainingSeatNames): void
+    {
+        if ($remainingSeatNames === []) {
+            return;
+        }
+
+        $chunks = array_chunk($remainingSeatNames, 18);
+
+        foreach ($chunks as $index => $names) {
+            $pdf->AddPage();
+            $pdf->SetFillColor(236, 233, 230);
+            $pdf->Rect(0, 0, 210, 297, 'F');
+            $pdf->SetFillColor(248, 147, 63);
+            $pdf->Rect(0, 0, 210, 26, 'F');
+
+            $pdf->SetTextColor(255, 255, 255);
+            $pdf->SetFont('cairopdf', 'B', 18);
+            $this->writeTextBox($pdf, 20, 8, 170, 8, 'قائمة المسافرين', 'R');
+
+            $pdf->SetTextColor(95, 99, 104);
+            $this->drawCard($pdf, 12, 36, 186, 246);
+
+            $pdf->SetFont('cairopdf', 'B', 14);
+            $this->writeTextBox(
+                $pdf,
+                20,
+                46,
+                170,
+                8,
+                'الصفحة الإضافية '.($index + 2),
+                'R',
+            );
+
+            $pdf->SetFont('cairopdf', '', 14);
+            $pdf->SetTextColor(118, 123, 130);
+            $y = 62;
+
+            foreach ($names as $travelerName) {
+                $this->writeTextBox($pdf, 20, $y, 170, 8, $travelerName, 'R');
+                $y += 11;
+            }
+        }
     }
 
     private function drawCard(Mpdf $pdf, float $x, float $y, float $w, float $h): void
