@@ -3,112 +3,77 @@
 namespace App\Services;
 
 use App\Models\Booking;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
-use Spatie\Browsershot\Browsershot;
+use Mpdf\Config\ConfigVariables;
+use Mpdf\Config\FontVariables;
+use Mpdf\Mpdf;
 use Throwable;
 
 class TicketPdfRenderer
 {
     public function render(Booking $booking): string
     {
-        $html = view('traveler.ticket', compact('booking'))->render();
-        $this->ensureRuntimeDirectories();
-
         try {
-            return $this->browsershot($html)->pdf();
-        } catch (Throwable $browsershotException) {
-            Log::error('Ticket PDF Browsershot render failed.', [
+            $pdf = $this->makePdf();
+            $pdf->SetTitle('ticket-'.$booking->serial_number);
+            $pdf->SetDirectionality('rtl');
+
+            $html = view('traveler.ticket', compact('booking'))->render();
+            $pdf->WriteHTML($html);
+
+            return $pdf->Output('', 'S');
+        } catch (Throwable $exception) {
+            Log::error('Ticket PDF mPDF render failed.', [
                 'booking_id' => $booking->id,
-                'message' => $browsershotException->getMessage(),
+                'message' => $exception->getMessage(),
             ]);
 
-            try {
-                return Pdf::loadView('traveler.ticket', compact('booking'))->output();
-            } catch (Throwable $dompdfException) {
-                Log::error('Ticket PDF DomPDF fallback failed.', [
-                    'booking_id' => $booking->id,
-                    'message' => $dompdfException->getMessage(),
-                ]);
-
-                throw $dompdfException;
-            }
+            throw $exception;
         }
     }
 
-    private function browsershot(string $html): Browsershot
+    private function makePdf(): Mpdf
     {
-        $tempPath = storage_path('app/browsershot');
+        $this->ensureRuntimeDirectories();
 
-        $browsershot = Browsershot::html($html)
-            ->setNodeModulePath(base_path('node_modules'))
-            ->setBinPath(base_path('bin/browsershot.cjs'))
-            ->setCustomTempPath($tempPath)
-            ->format('A4')
-            ->margins(0, 0, 0, 0)
-            ->showBackground()
-            ->waitUntilNetworkIdle(false)
-            ->newHeadless()
-            ->noSandbox();
+        $defaultConfig = (new ConfigVariables())->getDefaults();
+        $fontDirs = $defaultConfig['fontDir'];
 
-        if ($nodeBinary = $this->resolveNodeBinary()) {
-            $browsershot->setNodeBinary($nodeBinary);
-        }
+        $defaultFontConfig = (new FontVariables())->getDefaults();
+        $fontData = $defaultFontConfig['fontdata'];
 
-        if ($chromeBinary = $this->resolveChromeBinary()) {
-            $browsershot->setChromePath($chromeBinary);
-        }
-
-        return $browsershot;
+        return new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4',
+            'tempDir' => storage_path('app/mpdf'),
+            'fontDir' => array_merge($fontDirs, [
+                public_path('assets/fonts'),
+            ]),
+            'fontdata' => $fontData + [
+                'cairopdf' => [
+                    'R' => 'Cairo-Regular.ttf',
+                    'B' => 'Cairo-Bold.ttf',
+                ],
+            ],
+            'default_font' => 'cairopdf',
+            'default_font_size' => 12,
+            'margin_left' => 0,
+            'margin_right' => 0,
+            'margin_top' => 0,
+            'margin_bottom' => 0,
+            'margin_header' => 0,
+            'margin_footer' => 0,
+            'autoScriptToLang' => true,
+            'autoLangToFont' => true,
+        ]);
     }
 
     private function ensureRuntimeDirectories(): void
     {
-        foreach ([storage_path('app/browsershot'), storage_path('fonts')] as $path) {
+        foreach ([storage_path('app/mpdf')] as $path) {
             if (! is_dir($path)) {
                 mkdir($path, 0755, true);
             }
         }
-    }
-
-    private function resolveNodeBinary(): ?string
-    {
-        $candidates = array_filter([
-            env('BROWSERSHOT_NODE_BINARY'),
-            '/usr/bin/node',
-            'C:\\Program Files\\nodejs\\node.exe',
-            'C:\\Users\\ACER NITRO V15\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe',
-        ]);
-
-        foreach ($candidates as $candidate) {
-            if (is_string($candidate) && $candidate !== '' && file_exists($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return null;
-    }
-
-    private function resolveChromeBinary(): ?string
-    {
-        $candidates = array_filter([
-            env('BROWSERSHOT_CHROME_PATH'),
-            '/usr/bin/chromium-browser',
-            '/usr/bin/chromium',
-            '/usr/bin/google-chrome',
-            '/usr/bin/google-chrome-stable',
-            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-            'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-        ]);
-
-        foreach ($candidates as $candidate) {
-            if (is_string($candidate) && $candidate !== '' && file_exists($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return null;
     }
 }

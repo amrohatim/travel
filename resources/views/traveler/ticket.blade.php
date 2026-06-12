@@ -19,26 +19,10 @@
         ? 'data:image/png;base64,'.base64_encode(file_get_contents($routeVisualPath))
         : null;
 
-    $cairoRegularPath = public_path('assets/fonts/Cairo-Regular.ttf');
-    $cairoRegularData = file_exists($cairoRegularPath)
-        ? 'data:font/ttf;base64,'.base64_encode(file_get_contents($cairoRegularPath))
-        : null;
-
-    $cairoBoldPath = public_path('assets/fonts/Cairo-Bold.ttf');
-    $cairoBoldData = file_exists($cairoBoldPath)
-        ? 'data:font/ttf;base64,'.base64_encode(file_get_contents($cairoBoldPath))
-        : null;
-
     $dayLabel = $travelDate ? $travelDate->locale('ar')->translatedFormat('l') : '';
     $dateLabel = $travelDate ? $travelDate->format('j-n-Y') : '--/--/----';
-    $timeValue = '--';
-    $timePeriod = '';
-
-    if ($departure) {
-        $timeValue = $departure->format('g');
-        $timePeriod = $departure->hour < 12 ? 'صباحا' : 'مساء';
-    }
-
+    $timeValue = $departure ? $departure->format('g') : '--';
+    $timePeriod = $departure ? ($departure->hour < 12 ? 'صباحا' : 'مساء') : '';
     $routeFrom = $booking->flight?->from ?? '';
     $routeTo = $booking->flight?->to ?? '';
     $officeName = $booking->flight?->office_name ?? '';
@@ -51,28 +35,6 @@
     <meta charset="utf-8">
     <title>Ticket</title>
     <style>
-        @if ($cairoRegularData)
-        @font-face {
-            font-family: "CairoPdf";
-            src: url("{{ $cairoRegularData }}") format("truetype");
-            font-weight: 400;
-            font-style: normal;
-        }
-        @endif
-
-        @if ($cairoBoldData)
-        @font-face {
-            font-family: "CairoPdf";
-            src: url("{{ $cairoBoldData }}") format("truetype");
-            font-weight: 700;
-            font-style: normal;
-        }
-        @endif
-
-        * {
-            box-sizing: border-box;
-        }
-
         @page {
             margin: 0;
             size: A4;
@@ -80,466 +42,411 @@
 
         body {
             margin: 0;
-            background: #eceae8;
-            color: #5f646a;
+            padding: 0;
             direction: rtl;
-            font-family: "CairoPdf", "DejaVu Sans", sans-serif;
-            text-align: right;
+            background: #ece9e6;
+            color: #5f6368;
+            font-family: cairopdf, sans-serif;
+            font-size: 14px;
         }
 
-        .rtl-text {
-            direction: rtl;
-            unicode-bidi: isolate;
+        .page {
+            background: #ece9e6;
         }
 
-        .ltr-text {
-            direction: ltr;
-            unicode-bidi: isolate;
+        .header {
+            background: #f8933f;
+            padding: 18px 26px;
         }
 
-        .inline-chip {
-            display: inline-block;
+        .header-table,
+        .content-table,
+        .details-table,
+        .office-table,
+        .stats-table,
+        .date-table,
+        .route-table {
+            width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+
+        .header-logo {
+            width: 70px;
+            text-align: left;
             vertical-align: middle;
         }
 
-        .ticket-page {
-            width: 100%;
-            min-height: 100vh;
-            background: #eceae8;
+        .header-logo img {
+            width: 58px;
+            height: 58px;
         }
 
-        .top-band {
-            background: #f8933f;
-            padding: 12px 28px 10px;
-        }
-
-        .top-band::after {
-            content: "";
-            display: block;
-            clear: both;
-        }
-
-        .brand {
-            float: right;
+        .header-copy {
             text-align: right;
-        }
-
-        .brand-copy {
-            float: right;
-            margin-left: 14px;
             color: #ffffff;
-            text-align: right;
+            vertical-align: middle;
         }
 
-        .brand-copy h1 {
-            margin: 0 0 2px;
+        .brand-name {
             font-size: 26px;
-            line-height: 1.05;
-            font-weight: 700;
-        }
-
-        .brand-copy p {
-            margin: 0;
-            font-size: 16px;
+            font-weight: bold;
             line-height: 1.1;
-            font-weight: 700;
+            margin-bottom: 2px;
         }
 
-        .brand-mark {
-            float: right;
-            width: 58px;
-            height: 58px;
-        }
-
-        .brand-mark img {
-            display: block;
-            width: 58px;
-            height: 58px;
-            object-fit: contain;
+        .brand-tagline {
+            font-size: 16px;
+            font-weight: bold;
+            line-height: 1.2;
         }
 
         .sheet {
-            padding: 20px 40px 26px;
+            padding: 22px 34px 28px;
         }
 
-        .heading-wrap {
-            position: relative;
-            margin-bottom: 18px;
+        .heading-table td {
+            vertical-align: top;
+        }
+
+        .serial-cell {
+            width: 190px;
+            padding-left: 16px;
+        }
+
+        .serial-chip {
+            background: #f8933f;
+            padding: 16px 12px 12px;
+            text-align: center;
+        }
+
+        .serial-title {
+            color: #2f251d;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .serial-value {
+            color: #ffffff;
+            direction: ltr;
+            font-size: 13px;
+            font-weight: bold;
         }
 
         .heading-copy {
             text-align: right;
+            padding-top: 8px;
         }
 
-        .heading-copy h2 {
-            margin: 0 0 8px;
+        .ticket-title {
             color: #f8933f;
-            font-size: 27px;
-            line-height: 1.08;
-            font-weight: 700;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 6px;
         }
 
-        .heading-copy p {
-            margin: 0;
-            color: #6f7379;
+        .ticket-status {
+            color: #6c7178;
             font-size: 20px;
-            line-height: 1.2;
-            font-weight: 400;
         }
 
-        .heading-copy strong {
+        .ticket-status strong {
             color: #f8933f;
-            font-weight: 700;
+            font-weight: bold;
         }
 
         .heading-rule {
-            margin-top: 12px;
-            border-top: 1px solid #d4d0cd;
-        }
-
-        .serial-chip {
-            position: absolute;
-            left: -40px;
-            top: 40px;
-            width: 184px;
-            background: #f8933f;
-            padding: 15px 14px 11px;
-            text-align: center;
-        }
-
-        .serial-chip h3 {
-            margin: 0 0 8px;
-            color: #31261d;
-            font-size: 17px;
-            line-height: 1.15;
-            font-weight: 700;
-        }
-
-        .serial-chip p {
-            margin: 0;
-            color: #ffffff;
-            font-size: 13px;
-            line-height: 1.35;
-            word-break: break-word;
-            font-weight: 700;
+            border-top: 1px solid #d9d2cc;
+            margin-top: 14px;
         }
 
         .summary-card,
         .office-card {
             background: #ffffff;
-            border: 1px solid #e9e4df;
+            border: 1px solid #e6e0da;
         }
 
-        .summary-card::after {
-            content: "";
-            display: block;
-            clear: both;
+        .summary-card {
+            margin-top: 16px;
         }
 
-        .passengers-panel,
-        .trip-panel {
-            float: right;
-            width: 50%;
-            min-height: 300px;
-        }
-
-        .trip-panel {
-            padding: 20px 28px 18px;
-        }
-
-        .passengers-panel {
-            border-left: 1px solid #d9d5d1;
-            padding: 22px 28px 20px;
+        .passengers-cell {
+            width: 37%;
+            border-right: 1px solid #ddd6d1;
+            padding: 24px 24px 20px;
             text-align: center;
+            vertical-align: top;
         }
 
-        .passengers-panel h3 {
-            margin: 0 0 8px;
-            color: #70757c;
-            font-size: 26px;
-            line-height: 1.15;
-            font-weight: 700;
-        }
-
-        .passenger-list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        .passenger-list li {
-            margin: 0 0 7px;
-            color: #767b81;
-            font-size: 18px;
-            line-height: 1.45;
-            font-weight: 400;
-        }
-
-        .route-block {
+        .trip-cell {
+            width: 63%;
+            padding: 24px 28px 20px;
             text-align: right;
+            vertical-align: top;
+        }
+
+        .section-title {
+            color: #6d737b;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .passenger-name {
+            color: #767b82;
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 6px;
         }
 
         .route-visual {
             text-align: center;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .route-visual img {
-            display: inline-block;
-            width: 116px;
+            width: 118px;
             height: auto;
         }
 
-        .route-line {
+        .route-table td {
+            color: #6c7178;
+            font-size: 19px;
+            font-weight: bold;
             text-align: center;
-            color: #71757b;
-            font-size: 18px;
-            line-height: 1.2;
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
-
-        .route-from,
-        .route-to {
-            display: inline-block;
             vertical-align: middle;
-            width: 34%;
-            white-space: nowrap;
-            direction: rtl;
-            unicode-bidi: isolate;
-        }
-
-        .route-from {
-            text-align: left;
-        }
-
-        .route-to {
-            text-align: right;
         }
 
         .route-gap {
-            display: inline-block;
-            width: 18%;
+            width: 25%;
         }
 
-        .date-row {
+        .date-table {
+            margin-top: 12px;
+        }
+
+        .date-table td {
             text-align: center;
-            color: #70757b;
-            font-size: 17px;
-            line-height: 1.25;
-            font-weight: 700;
+            vertical-align: middle;
         }
 
-        .date-row span {
-            display: inline-block;
-            vertical-align: baseline;
-            margin: 0 4px;
+        .date-day {
+            color: #6c7178;
+            font-size: 18px;
+            font-weight: bold;
         }
 
-        .date-row .time {
+        .date-value {
+            color: #6c7178;
+            direction: ltr;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .time-wrap {
             color: #f8933f;
-            font-size: 20px;
-            font-weight: 700;
+            font-size: 23px;
+            font-weight: bold;
         }
 
-        .stats {
-            margin-top: 22px;
-            text-align: center;
+        .time-value {
+            direction: ltr;
         }
 
-        .stats::after {
-            content: "";
-            display: block;
-            clear: both;
+        .stats-table {
+            margin-top: 28px;
         }
 
-        .stat {
-            float: right;
+        .stats-table td {
             width: 50%;
+            text-align: center;
+            vertical-align: top;
         }
 
         .stat-label {
-            color: #6f7379;
+            color: #6c7178;
             font-size: 17px;
-            line-height: 1.25;
-            font-weight: 700;
+            font-weight: bold;
             margin-bottom: 12px;
         }
 
         .stat-value {
             color: #f8933f;
-            font-size: 18px;
-            line-height: 1.2;
-            font-weight: 700;
+            font-size: 20px;
+            font-weight: bold;
         }
 
         .money-value {
             direction: ltr;
-            unicode-bidi: isolate;
         }
 
         .office-card {
-            margin-top: 36px;
-            padding: 10px 24px 12px;
-        }
-
-        .office-card::after {
-            content: "";
-            display: block;
-            clear: both;
-        }
-
-        .office-info {
-            float: right;
-            text-align: right;
-            margin-top: 22px;
-        }
-
-        .office-info h3 {
-            margin: 0 0 8px;
-            color: #171717;
-            font-size: 24px;
-            line-height: 1.15;
-            font-weight: 700;
-        }
-
-        .office-info p {
-            margin: 0;
-            color: #171717;
-            font-size: 21px;
-            line-height: 1.2;
-            font-weight: 700;
+            margin-top: 34px;
+            padding: 12px 24px;
         }
 
         .office-branding {
-            float: left;
-            width: 106px;
+            width: 112px;
             text-align: center;
+            vertical-align: middle;
         }
 
         .office-branding img {
-            display: block;
-            width: 92px;
-            height: 92px;
-            margin: 0 auto 2px;
-            object-fit: contain;
+            width: 90px;
+            height: 90px;
+            margin-bottom: 4px;
         }
 
-        .office-branding h4 {
-            margin: 0 0 2px;
+        .office-branding-name {
             color: #f8933f;
             font-size: 15px;
-            line-height: 1.1;
-            font-weight: 700;
+            font-weight: bold;
+            margin-bottom: 2px;
         }
 
-        .office-branding p {
-            margin: 0;
-            color: #243447;
+        .office-branding-copy {
+            color: #223444;
             font-size: 13px;
-            line-height: 1.25;
-            font-weight: 700;
+            font-weight: bold;
+            line-height: 1.35;
+        }
+
+        .office-info {
+            text-align: right;
+            vertical-align: middle;
+        }
+
+        .office-title {
+            color: #171717;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .office-name {
+            color: #171717;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .rtl {
+            direction: rtl;
+        }
+
+        .ltr {
+            direction: ltr;
         }
     </style>
 </head>
 <body>
-<div class="ticket-page">
-    <div class="top-band">
-        <div class="brand">
-            <div class="brand-mark">
-                @if ($topHeaderLogoData)
-                    <img src="{{ $topHeaderLogoData }}" alt="سفريات">
-                @endif
-            </div>
-            <div class="brand-copy">
-                <h1 class="rtl-text">سفريات</h1>
-                <p class="rtl-text">معك في كل الرحلات</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="sheet">
-        <div class="heading-wrap">
-            <div class="heading-copy">
-                <h2 class="rtl-text">تذكرة مؤكدة</h2>
-                <p class="rtl-text">حالة التذكرة: <strong class="rtl-text inline-chip">مؤكدة</strong></p>
-                <div class="heading-rule"></div>
-            </div>
-
-            <div class="serial-chip">
-                <h3 class="rtl-text">الرقم التسلسلي</h3>
-                <p class="ltr-text">{{ $booking->serial_number }}</p>
-            </div>
+    <div class="page">
+        <div class="header">
+            <table class="header-table">
+                <tr>
+                    <td class="header-copy">
+                        <div class="brand-name">سفريات</div>
+                        <div class="brand-tagline">معك في كل الرحلات</div>
+                    </td>
+                    <td class="header-logo">
+                        @if ($topHeaderLogoData)
+                            <img src="{{ $topHeaderLogoData }}" alt="سفريات">
+                        @endif
+                    </td>
+                </tr>
+            </table>
         </div>
 
-        <div class="summary-card">
-            <div class="trip-panel">
-                <div class="route-block">
-                    @if ($routeVisualData)
-                        <div class="route-visual">
-                            <img src="{{ $routeVisualData }}" alt="">
+        <div class="sheet">
+            <table class="content-table heading-table">
+                <tr>
+                    <td class="heading-copy">
+                        <div class="ticket-title">تذكرة مؤكدة</div>
+                        <div class="ticket-status">حالة التذكرة: <strong>مؤكدة</strong></div>
+                        <div class="heading-rule"></div>
+                    </td>
+                    <td class="serial-cell">
+                        <div class="serial-chip">
+                            <div class="serial-title">الرقم التسلسلي</div>
+                            <div class="serial-value">{{ $booking->serial_number }}</div>
                         </div>
-                    @endif
+                    </td>
+                </tr>
+            </table>
 
-                    <div class="route-line">
-                        <span class="route-to">{{ $routeTo }}</span>
-                        <span class="route-gap"></span>
-                        <span class="route-from">{{ $routeFrom }}</span>
-                    </div>
+            <table class="summary-card details-table">
+                <tr>
+                    <td class="trip-cell">
+                        @if ($routeVisualData)
+                            <div class="route-visual">
+                                <img src="{{ $routeVisualData }}" alt="">
+                            </div>
+                        @endif
 
-                    <div class="date-row">
-                        <span class="rtl-text inline-chip">{{ $dayLabel }}</span>
-                        <span class="ltr-text inline-chip">{{ $dateLabel }}</span>
-                        <span class="time inline-chip">
-                            <span class="rtl-text inline-chip">{{ $timePeriod }}</span>
-                            <span class="ltr-text inline-chip">{{ $timeValue }}</span>
-                        </span>
-                    </div>
-                </div>
+                        <table class="route-table">
+                            <tr>
+                                <td class="rtl">{{ $routeTo }}</td>
+                                <td class="route-gap"></td>
+                                <td class="rtl">{{ $routeFrom }}</td>
+                            </tr>
+                        </table>
 
-                <div class="stats">
-                    <div class="stat">
-                        <div class="stat-label rtl-text">إجمالي التذاكر</div>
-                        <div class="stat-value money-value">{{ $totalAmount }} SDG</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-label rtl-text">عدد التذاكر</div>
-                        <div class="stat-value ltr-text">{{ $seatCount }}</div>
-                    </div>
-                </div>
-            </div>
+                        <table class="date-table">
+                            <tr>
+                                <td class="time-wrap">
+                                    <span class="rtl">{{ $timePeriod }}</span>
+                                    <span class="time-value">{{ $timeValue }}</span>
+                                </td>
+                                <td class="date-value">{{ $dateLabel }}</td>
+                                <td class="date-day">{{ $dayLabel }}</td>
+                            </tr>
+                        </table>
 
-            <div class="passengers-panel">
-                <h3 class="rtl-text">المسافرين</h3>
-                @if ($booking->relationLoaded('seats') && $booking->seats->count())
-                    <ul class="passenger-list">
-                        @foreach ($booking->seats as $seat)
-                            <li class="rtl-text">{{ $seat->traveler_name }}</li>
-                        @endforeach
-                    </ul>
-                @else
-                    <ul class="passenger-list">
-                        <li class="rtl-text">لا توجد أسماء مسجلة</li>
-                    </ul>
-                @endif
-            </div>
-        </div>
+                        <table class="stats-table">
+                            <tr>
+                                <td>
+                                    <div class="stat-label">إجمالي التذاكر</div>
+                                    <div class="stat-value money-value">{{ $totalAmount }} SDG</div>
+                                </td>
+                                <td>
+                                    <div class="stat-label">عدد التذاكر</div>
+                                    <div class="stat-value ltr">{{ $seatCount }}</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
 
-        <div class="office-card">
-            <div class="office-info">
-                <h3 class="rtl-text">المكتب</h3>
-                <p class="rtl-text">{{ $officeName }}</p>
-            </div>
+                    <td class="passengers-cell">
+                        <div class="section-title">المسافرين</div>
+                        @if ($booking->relationLoaded('seats') && $booking->seats->count())
+                            @foreach ($booking->seats as $seat)
+                                <div class="passenger-name">{{ $seat->traveler_name }}</div>
+                            @endforeach
+                        @else
+                            <div class="passenger-name">لا توجد أسماء مسجلة</div>
+                        @endif
+                    </td>
+                </tr>
+            </table>
 
-            <div class="office-branding">
-                @if ($bottomLeftLogoData)
-                    <img src="{{ $bottomLeftLogoData }}" alt="سفريات">
-                @endif
-                <h4 class="rtl-text">سفريات</h4>
-                <p class="rtl-text">معك في كل الرحلات</p>
+            <div class="office-card">
+                <table class="office-table">
+                    <tr>
+                        <td class="office-info">
+                            <div class="office-title">المكتب</div>
+                            <div class="office-name">{{ $officeName }}</div>
+                        </td>
+                        <td class="office-branding">
+                            @if ($bottomLeftLogoData)
+                                <img src="{{ $bottomLeftLogoData }}" alt="سفريات">
+                            @endif
+                            <div class="office-branding-name">سفريات</div>
+                            <div class="office-branding-copy">معك في كل الرحلات</div>
+                        </td>
+                    </tr>
+                </table>
             </div>
         </div>
     </div>
-</div>
 </body>
 </html>
