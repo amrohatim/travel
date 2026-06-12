@@ -227,7 +227,7 @@ class TicketPdfRenderer
     private function writeTextBox(Mpdf $pdf, float $x, float $y, float $w, float $h, string $text, string $align): void
     {
         $pdf->SetXY($x, $y);
-        $pdf->Cell($w, $h, $text, 0, 0, $align, false);
+        $pdf->Cell($w, $h, $this->prepareText($text), 0, 0, $align, false);
     }
 
     private function ensureRuntimeDirectories(): void
@@ -237,5 +237,18 @@ class TicketPdfRenderer
         if (! is_dir($path)) {
             mkdir($path, 0755, true);
         }
+    }
+
+    private function prepareText(string $text): string
+    {
+        if ($text === '') {
+            return '';
+        }
+
+        if (! preg_match('/\p{Arabic}/u', $text)) {
+            return $text;
+        }
+
+        return arabic_text($text);
     }
 }
