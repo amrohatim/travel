@@ -31,11 +31,12 @@
 
     $dayLabel = $travelDate ? $travelDate->locale('ar')->translatedFormat('l') : '';
     $dateLabel = $travelDate ? $travelDate->format('j-n-Y') : '--/--/----';
-    $timeLabel = '--:--';
+    $timeValue = '--';
+    $timePeriod = '';
 
     if ($departure) {
+        $timeValue = $departure->format('g');
         $timePeriod = $departure->hour < 12 ? 'صباحا' : 'مساء';
-        $timeLabel = $departure->format('g').' '.$timePeriod;
     }
 
     $routeFrom = $booking->flight?->from ?? '';
@@ -84,6 +85,21 @@
             direction: rtl;
             font-family: "CairoPdf", "DejaVu Sans", sans-serif;
             text-align: right;
+        }
+
+        .rtl-text {
+            direction: rtl;
+            unicode-bidi: isolate;
+        }
+
+        .ltr-text {
+            direction: ltr;
+            unicode-bidi: isolate;
+        }
+
+        .inline-chip {
+            display: inline-block;
+            vertical-align: middle;
         }
 
         .ticket-page {
@@ -289,6 +305,8 @@
             vertical-align: middle;
             width: 34%;
             white-space: nowrap;
+            direction: rtl;
+            unicode-bidi: isolate;
         }
 
         .route-from {
@@ -353,6 +371,11 @@
             font-size: 18px;
             line-height: 1.2;
             font-weight: 700;
+        }
+
+        .money-value {
+            direction: ltr;
+            unicode-bidi: isolate;
         }
 
         .office-card {
@@ -429,8 +452,8 @@
                 @endif
             </div>
             <div class="brand-copy">
-                <h1>سفريات</h1>
-                <p>معك في كل الرحلات</p>
+                <h1 class="rtl-text">سفريات</h1>
+                <p class="rtl-text">معك في كل الرحلات</p>
             </div>
         </div>
     </div>
@@ -438,14 +461,14 @@
     <div class="sheet">
         <div class="heading-wrap">
             <div class="heading-copy">
-                <h2>تذكرة مؤكدة</h2>
-                <p>حالة التذكرة: <strong>مؤكدة</strong></p>
+                <h2 class="rtl-text">تذكرة مؤكدة</h2>
+                <p class="rtl-text">حالة التذكرة: <strong class="rtl-text inline-chip">مؤكدة</strong></p>
                 <div class="heading-rule"></div>
             </div>
 
             <div class="serial-chip">
-                <h3>الرقم التسلسلي</h3>
-                <p>{{ $booking->serial_number }}</p>
+                <h3 class="rtl-text">الرقم التسلسلي</h3>
+                <p class="ltr-text">{{ $booking->serial_number }}</p>
             </div>
         </div>
 
@@ -465,35 +488,38 @@
                     </div>
 
                     <div class="date-row">
-                        <span>{{ $dayLabel }}</span>
-                        <span>{{ $dateLabel }}</span>
-                        <span class="time">{{ $timeLabel }}</span>
+                        <span class="rtl-text inline-chip">{{ $dayLabel }}</span>
+                        <span class="ltr-text inline-chip">{{ $dateLabel }}</span>
+                        <span class="time inline-chip">
+                            <span class="rtl-text inline-chip">{{ $timePeriod }}</span>
+                            <span class="ltr-text inline-chip">{{ $timeValue }}</span>
+                        </span>
                     </div>
                 </div>
 
                 <div class="stats">
                     <div class="stat">
-                        <div class="stat-label">إجمالي التذاكر</div>
-                        <div class="stat-value">{{ $totalAmount }} SDG</div>
+                        <div class="stat-label rtl-text">إجمالي التذاكر</div>
+                        <div class="stat-value money-value">{{ $totalAmount }} SDG</div>
                     </div>
                     <div class="stat">
-                        <div class="stat-label">عدد التذاكر</div>
-                        <div class="stat-value">{{ $seatCount }}</div>
+                        <div class="stat-label rtl-text">عدد التذاكر</div>
+                        <div class="stat-value ltr-text">{{ $seatCount }}</div>
                     </div>
                 </div>
             </div>
 
             <div class="passengers-panel">
-                <h3>المسافرين</h3>
+                <h3 class="rtl-text">المسافرين</h3>
                 @if ($booking->relationLoaded('seats') && $booking->seats->count())
                     <ul class="passenger-list">
                         @foreach ($booking->seats as $seat)
-                            <li>{{ $seat->traveler_name }}</li>
+                            <li class="rtl-text">{{ $seat->traveler_name }}</li>
                         @endforeach
                     </ul>
                 @else
                     <ul class="passenger-list">
-                        <li>لا توجد أسماء مسجلة</li>
+                        <li class="rtl-text">لا توجد أسماء مسجلة</li>
                     </ul>
                 @endif
             </div>
@@ -501,16 +527,16 @@
 
         <div class="office-card">
             <div class="office-info">
-                <h3>المكتب</h3>
-                <p>{{ $officeName }}</p>
+                <h3 class="rtl-text">المكتب</h3>
+                <p class="rtl-text">{{ $officeName }}</p>
             </div>
 
             <div class="office-branding">
                 @if ($bottomLeftLogoData)
                     <img src="{{ $bottomLeftLogoData }}" alt="سفريات">
                 @endif
-                <h4>سفريات</h4>
-                <p>معك في كل الرحلات</p>
+                <h4 class="rtl-text">سفريات</h4>
+                <p class="rtl-text">معك في كل الرحلات</p>
             </div>
         </div>
     </div>
