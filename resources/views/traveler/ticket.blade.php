@@ -21,6 +21,12 @@
             font-family: "DejaVu Sans", sans-serif;
         }
 
+        .glyph {
+            direction: ltr;
+            unicode-bidi: bidi-override;
+            display: inline-block;
+        }
+
         .ticket-page {
             width: 100%;
             min-height: 100vh;
@@ -371,18 +377,18 @@
         ? 'data:image/png;base64,'.base64_encode(file_get_contents($routeVisualPath))
         : null;
 
-    $dayLabel = $travelDate ? $travelDate->locale('ar')->translatedFormat('l') : '';
+    $dayLabel = $travelDate ? arabic_text($travelDate->locale('ar')->translatedFormat('l')) : '';
     $dateLabel = $travelDate ? $travelDate->format('j-n-Y') : '--/--/----';
     $timeLabel = '--:--';
 
     if ($departure) {
-        $timePeriod = $departure->hour < 12 ? 'صباحا' : 'مساء';
+        $timePeriod = $departure->hour < 12 ? arabic_text('صباحا') : arabic_text('مساء');
         $timeLabel = $departure->format('g').' '.$timePeriod;
     }
 
-    $routeFrom = $booking->flight?->from ?? '';
-    $routeTo = $booking->flight?->to ?? '';
-    $officeName = $booking->flight?->office_name ?? '';
+    $routeFrom = arabic_text($booking->flight?->from ?? '');
+    $routeTo = arabic_text($booking->flight?->to ?? '');
+    $officeName = arabic_text($booking->flight?->office_name ?? '');
     $seatCount = (int) $booking->seats_booked;
     $totalAmount = number_format((int) $booking->total, 0);
 @endphp
@@ -396,8 +402,8 @@
                 @endif
             </div>
             <div class="brand-copy">
-                <h1>سفريات</h1>
-                <p>معك في كل الرحلات</p>
+                <h1><span class="glyph">{!! arabic_text('سفريات') !!}</span></h1>
+                <p><span class="glyph">{!! arabic_text('معك في كل الرحلات') !!}</span></p>
             </div>
         </div>
     </div>
@@ -405,13 +411,13 @@
     <div class="sheet">
         <div class="heading-wrap">
             <div class="heading-copy">
-                <h2>تذكرة مؤكدة</h2>
-                <p>حالة التذكرة: <strong>مؤكدة</strong></p>
+                <h2><span class="glyph">{!! arabic_text('تذكرة مؤكدة') !!}</span></h2>
+                <p><span class="glyph">{!! arabic_text('حالة التذكرة:') !!}</span> <strong><span class="glyph">{!! arabic_text('مؤكدة') !!}</span></strong></p>
                 <div class="heading-rule"></div>
             </div>
 
             <div class="serial-chip">
-                <h3>الرقم التسلسلي</h3>
+                <h3><span class="glyph">{!! arabic_text('الرقم التسلسلي') !!}</span></h3>
                 <p>{{ $booking->serial_number }}</p>
             </div>
         </div>
@@ -426,41 +432,41 @@
                     @endif
 
                     <div class="route-line">
-                        <span class="route-to">{{ $routeTo }}</span>
+                        <span class="route-to glyph">{!! $routeTo !!}</span>
                         <span class="route-gap"></span>
-                        <span class="route-from">{{ $routeFrom }}</span>
+                        <span class="route-from glyph">{!! $routeFrom !!}</span>
                     </div>
 
                     <div class="date-row">
-                        <span>{{ $dayLabel }}</span>
+                        <span class="glyph">{!! $dayLabel !!}</span>
                         <span>{{ $dateLabel }}</span>
-                        <span class="time">{{ $timeLabel }}</span>
+                        <span class="time glyph">{!! $timeLabel !!}</span>
                     </div>
                 </div>
 
                 <div class="stats">
                     <div class="stat">
-                        <div class="stat-label">إجمالي التذاكر</div>
+                        <div class="stat-label"><span class="glyph">{!! arabic_text('إجمالي التذاكر') !!}</span></div>
                         <div class="stat-value">{{ $totalAmount }} SDG</div>
                     </div>
                     <div class="stat">
-                        <div class="stat-label">عدد التذاكر</div>
+                        <div class="stat-label"><span class="glyph">{!! arabic_text('عدد التذاكر') !!}</span></div>
                         <div class="stat-value">{{ $seatCount }}</div>
                     </div>
                 </div>
             </div>
 
             <div class="passengers-panel">
-                <h3>المسافرين</h3>
+                <h3><span class="glyph">{!! arabic_text('المسافرين') !!}</span></h3>
                 @if ($booking->relationLoaded('seats') && $booking->seats->count())
                     <ul class="passenger-list">
                         @foreach ($booking->seats as $seat)
-                            <li>{{ $seat->traveler_name }}</li>
+                            <li><span class="glyph">{!! arabic_text($seat->traveler_name) !!}</span></li>
                         @endforeach
                     </ul>
                 @else
                     <ul class="passenger-list">
-                        <li>لا توجد أسماء مسجلة</li>
+                        <li><span class="glyph">{!! arabic_text('لا توجد أسماء مسجلة') !!}</span></li>
                     </ul>
                 @endif
             </div>
@@ -468,16 +474,16 @@
 
         <div class="office-card">
             <div class="office-info">
-                <h3>المكتب</h3>
-                <p>{{ $officeName }}</p>
+                <h3><span class="glyph">{!! arabic_text('المكتب') !!}</span></h3>
+                <p><span class="glyph">{!! $officeName !!}</span></p>
             </div>
 
             <div class="office-branding">
                 @if ($bottomLeftLogoData)
                     <img src="{{ $bottomLeftLogoData }}" alt="سفريات">
                 @endif
-                <h4>سفريات</h4>
-                <p>معك في كل الرحلات</p>
+                <h4><span class="glyph">{!! arabic_text('سفريات') !!}</span></h4>
+                <p><span class="glyph">{!! arabic_text('معك في كل الرحلات') !!}</span></p>
             </div>
         </div>
     </div>
