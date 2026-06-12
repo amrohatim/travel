@@ -1,9 +1,73 @@
+@php
+    use Carbon\Carbon;
+
+    $travelDate = $booking->flight?->travel_date ? Carbon::parse($booking->flight->travel_date) : null;
+    $departure = $booking->flight?->departure_time ? Carbon::parse($booking->flight->departure_time) : null;
+
+    $topHeaderLogoPath = public_path('assets/top_header_logo.png');
+    $topHeaderLogoData = file_exists($topHeaderLogoPath)
+        ? 'data:image/png;base64,'.base64_encode(file_get_contents($topHeaderLogoPath))
+        : null;
+
+    $bottomLeftLogoPath = public_path('assets/bottom_left_logo.png');
+    $bottomLeftLogoData = file_exists($bottomLeftLogoPath)
+        ? 'data:image/png;base64,'.base64_encode(file_get_contents($bottomLeftLogoPath))
+        : null;
+
+    $routeVisualPath = public_path('assets/bus_between_from_to.png');
+    $routeVisualData = file_exists($routeVisualPath)
+        ? 'data:image/png;base64,'.base64_encode(file_get_contents($routeVisualPath))
+        : null;
+
+    $cairoRegularPath = public_path('assets/fonts/Cairo-Regular.ttf');
+    $cairoRegularData = file_exists($cairoRegularPath)
+        ? 'data:font/ttf;base64,'.base64_encode(file_get_contents($cairoRegularPath))
+        : null;
+
+    $cairoBoldPath = public_path('assets/fonts/Cairo-Bold.ttf');
+    $cairoBoldData = file_exists($cairoBoldPath)
+        ? 'data:font/ttf;base64,'.base64_encode(file_get_contents($cairoBoldPath))
+        : null;
+
+    $dayLabel = $travelDate ? $travelDate->locale('ar')->translatedFormat('l') : '';
+    $dateLabel = $travelDate ? $travelDate->format('j-n-Y') : '--/--/----';
+    $timeLabel = '--:--';
+
+    if ($departure) {
+        $timePeriod = $departure->hour < 12 ? 'صباحا' : 'مساء';
+        $timeLabel = $departure->format('g').' '.$timePeriod;
+    }
+
+    $routeFrom = $booking->flight?->from ?? '';
+    $routeTo = $booking->flight?->to ?? '';
+    $officeName = $booking->flight?->office_name ?? '';
+    $seatCount = (int) $booking->seats_booked;
+    $totalAmount = number_format((int) $booking->total, 0);
+@endphp
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="utf-8">
     <title>Ticket</title>
     <style>
+        @if ($cairoRegularData)
+        @font-face {
+            font-family: "CairoPdf";
+            src: url("{{ $cairoRegularData }}") format("truetype");
+            font-weight: 400;
+            font-style: normal;
+        }
+        @endif
+
+        @if ($cairoBoldData)
+        @font-face {
+            font-family: "CairoPdf";
+            src: url("{{ $cairoBoldData }}") format("truetype");
+            font-weight: 700;
+            font-style: normal;
+        }
+        @endif
+
         * {
             box-sizing: border-box;
         }
@@ -18,13 +82,8 @@
             background: #eceae8;
             color: #5f646a;
             direction: rtl;
-            font-family: "DejaVu Sans", sans-serif;
-        }
-
-        .glyph {
-            direction: ltr;
-            unicode-bidi: bidi-override;
-            display: inline-block;
+            font-family: "CairoPdf", "DejaVu Sans", sans-serif;
+            text-align: right;
         }
 
         .ticket-page {
@@ -53,19 +112,20 @@
             float: right;
             margin-left: 14px;
             color: #ffffff;
+            text-align: right;
         }
 
         .brand-copy h1 {
             margin: 0 0 2px;
             font-size: 26px;
-            line-height: 1.08;
+            line-height: 1.05;
             font-weight: 700;
         }
 
         .brand-copy p {
             margin: 0;
             font-size: 16px;
-            line-height: 1.15;
+            line-height: 1.1;
             font-weight: 700;
         }
 
@@ -108,6 +168,7 @@
             color: #6f7379;
             font-size: 20px;
             line-height: 1.2;
+            font-weight: 400;
         }
 
         .heading-copy strong {
@@ -144,6 +205,7 @@
             font-size: 13px;
             line-height: 1.35;
             word-break: break-word;
+            font-weight: 700;
         }
 
         .summary-card,
@@ -194,6 +256,7 @@
             color: #767b81;
             font-size: 18px;
             line-height: 1.45;
+            font-weight: 400;
         }
 
         .route-block {
@@ -216,7 +279,7 @@
             color: #71757b;
             font-size: 18px;
             line-height: 1.2;
-            font-weight: 500;
+            font-weight: 700;
             margin-bottom: 12px;
         }
 
@@ -258,6 +321,7 @@
         .date-row .time {
             color: #f8933f;
             font-size: 20px;
+            font-weight: 700;
         }
 
         .stats {
@@ -356,43 +420,6 @@
     </style>
 </head>
 <body>
-@php
-    use Carbon\Carbon;
-
-    $travelDate = $booking->flight?->travel_date ? Carbon::parse($booking->flight->travel_date) : null;
-    $departure = $booking->flight?->departure_time ? Carbon::parse($booking->flight->departure_time) : null;
-
-    $topHeaderLogoPath = public_path('assets/top_header_logo.png');
-    $topHeaderLogoData = file_exists($topHeaderLogoPath)
-        ? 'data:image/png;base64,'.base64_encode(file_get_contents($topHeaderLogoPath))
-        : null;
-
-    $bottomLeftLogoPath = public_path('assets/bottom_left_logo.png');
-    $bottomLeftLogoData = file_exists($bottomLeftLogoPath)
-        ? 'data:image/png;base64,'.base64_encode(file_get_contents($bottomLeftLogoPath))
-        : null;
-
-    $routeVisualPath = public_path('assets/bus_between_from_to.png');
-    $routeVisualData = file_exists($routeVisualPath)
-        ? 'data:image/png;base64,'.base64_encode(file_get_contents($routeVisualPath))
-        : null;
-
-    $dayLabel = $travelDate ? arabic_text($travelDate->locale('ar')->translatedFormat('l')) : '';
-    $dateLabel = $travelDate ? $travelDate->format('j-n-Y') : '--/--/----';
-    $timeLabel = '--:--';
-
-    if ($departure) {
-        $timePeriod = $departure->hour < 12 ? arabic_text('صباحا') : arabic_text('مساء');
-        $timeLabel = $departure->format('g').' '.$timePeriod;
-    }
-
-    $routeFrom = arabic_text($booking->flight?->from ?? '');
-    $routeTo = arabic_text($booking->flight?->to ?? '');
-    $officeName = arabic_text($booking->flight?->office_name ?? '');
-    $seatCount = (int) $booking->seats_booked;
-    $totalAmount = number_format((int) $booking->total, 0);
-@endphp
-
 <div class="ticket-page">
     <div class="top-band">
         <div class="brand">
@@ -402,8 +429,8 @@
                 @endif
             </div>
             <div class="brand-copy">
-                <h1><span class="glyph">{!! arabic_text('سفريات') !!}</span></h1>
-                <p><span class="glyph">{!! arabic_text('معك في كل الرحلات') !!}</span></p>
+                <h1>سفريات</h1>
+                <p>معك في كل الرحلات</p>
             </div>
         </div>
     </div>
@@ -411,13 +438,13 @@
     <div class="sheet">
         <div class="heading-wrap">
             <div class="heading-copy">
-                <h2><span class="glyph">{!! arabic_text('تذكرة مؤكدة') !!}</span></h2>
-                <p><span class="glyph">{!! arabic_text('حالة التذكرة:') !!}</span> <strong><span class="glyph">{!! arabic_text('مؤكدة') !!}</span></strong></p>
+                <h2>تذكرة مؤكدة</h2>
+                <p>حالة التذكرة: <strong>مؤكدة</strong></p>
                 <div class="heading-rule"></div>
             </div>
 
             <div class="serial-chip">
-                <h3><span class="glyph">{!! arabic_text('الرقم التسلسلي') !!}</span></h3>
+                <h3>الرقم التسلسلي</h3>
                 <p>{{ $booking->serial_number }}</p>
             </div>
         </div>
@@ -432,41 +459,41 @@
                     @endif
 
                     <div class="route-line">
-                        <span class="route-to glyph">{!! $routeTo !!}</span>
+                        <span class="route-to">{{ $routeTo }}</span>
                         <span class="route-gap"></span>
-                        <span class="route-from glyph">{!! $routeFrom !!}</span>
+                        <span class="route-from">{{ $routeFrom }}</span>
                     </div>
 
                     <div class="date-row">
-                        <span class="glyph">{!! $dayLabel !!}</span>
+                        <span>{{ $dayLabel }}</span>
                         <span>{{ $dateLabel }}</span>
-                        <span class="time glyph">{!! $timeLabel !!}</span>
+                        <span class="time">{{ $timeLabel }}</span>
                     </div>
                 </div>
 
                 <div class="stats">
                     <div class="stat">
-                        <div class="stat-label"><span class="glyph">{!! arabic_text('إجمالي التذاكر') !!}</span></div>
+                        <div class="stat-label">إجمالي التذاكر</div>
                         <div class="stat-value">{{ $totalAmount }} SDG</div>
                     </div>
                     <div class="stat">
-                        <div class="stat-label"><span class="glyph">{!! arabic_text('عدد التذاكر') !!}</span></div>
+                        <div class="stat-label">عدد التذاكر</div>
                         <div class="stat-value">{{ $seatCount }}</div>
                     </div>
                 </div>
             </div>
 
             <div class="passengers-panel">
-                <h3><span class="glyph">{!! arabic_text('المسافرين') !!}</span></h3>
+                <h3>المسافرين</h3>
                 @if ($booking->relationLoaded('seats') && $booking->seats->count())
                     <ul class="passenger-list">
                         @foreach ($booking->seats as $seat)
-                            <li><span class="glyph">{!! arabic_text($seat->traveler_name) !!}</span></li>
+                            <li>{{ $seat->traveler_name }}</li>
                         @endforeach
                     </ul>
                 @else
                     <ul class="passenger-list">
-                        <li><span class="glyph">{!! arabic_text('لا توجد أسماء مسجلة') !!}</span></li>
+                        <li>لا توجد أسماء مسجلة</li>
                     </ul>
                 @endif
             </div>
@@ -474,16 +501,16 @@
 
         <div class="office-card">
             <div class="office-info">
-                <h3><span class="glyph">{!! arabic_text('المكتب') !!}</span></h3>
-                <p><span class="glyph">{!! $officeName !!}</span></p>
+                <h3>المكتب</h3>
+                <p>{{ $officeName }}</p>
             </div>
 
             <div class="office-branding">
                 @if ($bottomLeftLogoData)
                     <img src="{{ $bottomLeftLogoData }}" alt="سفريات">
                 @endif
-                <h4><span class="glyph">{!! arabic_text('سفريات') !!}</span></h4>
-                <p><span class="glyph">{!! arabic_text('معك في كل الرحلات') !!}</span></p>
+                <h4>سفريات</h4>
+                <p>معك في كل الرحلات</p>
             </div>
         </div>
     </div>
