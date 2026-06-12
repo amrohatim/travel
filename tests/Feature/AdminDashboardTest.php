@@ -2,6 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Flight;
+use App\Models\OfficeLocation;
 use App\Models\ParentCompany;
 use App\Models\Seat;
 use App\Models\State;
@@ -99,6 +100,8 @@ it('admin can create a user', function () {
         'role' => 'office',
         'parent_company_id' => $parentCompany->id,
         'state_id' => $state->id,
+        'lat' => '15.1234567',
+        'lng' => '32.7654321',
         'password' => 'secret123',
         'password_confirmation' => 'secret123',
     ]);
@@ -112,6 +115,12 @@ it('admin can create a user', function () {
         'role' => 'office',
         'parent_company_id' => $parentCompany->id,
         'state_id' => $state->id,
+    ]);
+    $createdUser = User::query()->where('email', 'created@example.com')->firstOrFail();
+    $this->assertDatabaseHas('office_locations', [
+        'office_id' => $createdUser->id,
+        'lat' => '15.1234567',
+        'lng' => '32.7654321',
     ]);
 });
 
@@ -182,6 +191,8 @@ it('admin can update a user', function () {
         'role' => 'office',
         'parent_company_id' => $parentCompany->id,
         'state_id' => $state->id,
+        'lat' => '14.1000000',
+        'lng' => '33.2000000',
     ]);
 
     $response->assertRedirect('/admin/users');
@@ -194,6 +205,137 @@ it('admin can update a user', function () {
         'role' => 'office',
         'parent_company_id' => $parentCompany->id,
         'state_id' => $state->id,
+    ]);
+    $this->assertDatabaseHas('office_locations', [
+        'office_id' => $user->id,
+        'lat' => '14.1000000',
+        'lng' => '33.2000000',
+    ]);
+});
+
+it('admin create office validation requires both location coordinates together', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Location Group']);
+
+    $response = $this->actingAs($admin)->from('/admin/users/create')->post('/admin/users', [
+        'name' => 'Office Partial Location',
+        'email' => 'partial-location@example.com',
+        'phone' => '1234569',
+        'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
+        'lat' => '15.5000000',
+        'password' => 'secret123',
+        'password_confirmation' => 'secret123',
+    ]);
+
+    $response->assertRedirect('/admin/users/create');
+    $response->assertSessionHasErrors(['lat', 'lng']);
+});
+
+it('admin update office validation requires both location coordinates together', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Location Update Group']);
+    $user = User::factory()->create([
+        'role' => 'office',
+        'phone' => '4446',
+        'parent_company_id' => $parentCompany->id,
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->from('/admin/users/'.$user->id.'/edit')
+        ->put('/admin/users/'.$user->id, [
+            'name' => 'Updated Name',
+            'email' => 'updated-location@example.com',
+            'phone' => '5557',
+            'role' => 'office',
+            'parent_company_id' => $parentCompany->id,
+            'lng' => '32.1000000',
+        ]);
+
+    $response->assertRedirect('/admin/users/'.$user->id.'/edit');
+    $response->assertSessionHasErrors(['lat', 'lng']);
+});
+
+it('admin can create an office without location coordinates', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'No Location Group']);
+
+    $response = $this->actingAs($admin)->post('/admin/users', [
+        'name' => 'Office Without Location',
+        'email' => 'office-without-location@example.com',
+        'phone' => '1234570',
+        'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
+        'password' => 'secret123',
+        'password_confirmation' => 'secret123',
+    ]);
+
+    $response->assertRedirect('/admin/users');
+
+    $office = User::query()->where('email', 'office-without-location@example.com')->firstOrFail();
+    $this->assertDatabaseMissing('office_locations', [
+        'office_id' => $office->id,
+    ]);
+});
+
+it('admin can update an existing office location', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Existing Location Group']);
+    $user = User::factory()->create([
+        'role' => 'office',
+        'phone' => '4447',
+        'parent_company_id' => $parentCompany->id,
+    ]);
+    OfficeLocation::create([
+        'office_id' => $user->id,
+        'lat' => 10.0000000,
+        'lng' => 20.0000000,
+    ]);
+
+    $response = $this->actingAs($admin)->put('/admin/users/'.$user->id, [
+        'name' => 'Updated Name',
+        'email' => 'updated-existing-location@example.com',
+        'phone' => '5558',
+        'role' => 'office',
+        'parent_company_id' => $parentCompany->id,
+        'lat' => '11.1111111',
+        'lng' => '22.2222222',
+    ]);
+
+    $response->assertRedirect('/admin/users');
+
+    $this->assertDatabaseHas('office_locations', [
+        'office_id' => $user->id,
+        'lat' => '11.1111111',
+        'lng' => '22.2222222',
+    ]);
+});
+
+it('admin changing an office to traveler removes office location', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $parentCompany = ParentCompany::create(['name' => 'Role Change Group']);
+    $user = User::factory()->create([
+        'role' => 'office',
+        'phone' => '4546',
+        'parent_company_id' => $parentCompany->id,
+    ]);
+    OfficeLocation::create([
+        'office_id' => $user->id,
+        'lat' => 12.0000000,
+        'lng' => 24.0000000,
+    ]);
+
+    $response = $this->actingAs($admin)->put('/admin/users/'.$user->id, [
+        'name' => 'Traveler Now',
+        'email' => 'traveler-now-2@example.com',
+        'phone' => '5455',
+        'role' => 'traveler',
+    ]);
+
+    $response->assertRedirect('/admin/users');
+
+    $this->assertDatabaseMissing('office_locations', [
+        'office_id' => $user->id,
     ]);
 });
 

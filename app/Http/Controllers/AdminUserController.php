@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\OfficeLocation;
 use App\Models\ParentCompany;
 use App\Models\State;
 use App\Models\User;
@@ -37,13 +38,15 @@ class AdminUserController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $validator = validator($request->all(), [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone'],
             'bankak_name' => ['nullable', 'string', 'max:255'],
             'bankak_number' => ['nullable', 'string', 'max:255'],
             'image' => ['nullable', 'image', 'max:2048'],
+            'lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'role' => ['required', Rule::in(['admin', 'office', 'traveler'])],
             'parent_company_id' => [
                 Rule::requiredIf(fn () => $request->input('role') === 'office'),
@@ -59,6 +62,10 @@ class AdminUserController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
+        $this->validateOfficeLocationPair($validator, $request);
+
+        $validated = $validator->validate();
+
         if (($validated['role'] ?? null) !== 'office') {
             $validated['parent_company_id'] = null;
             $validated['state_id'] = null;
@@ -68,7 +75,13 @@ class AdminUserController extends Controller
             $validated['image'] = $request->file('image')->store('users', 'public');
         }
 
-        User::create($validated);
+        $userAttributes = collect($validated)
+            ->except(['lat', 'lng'])
+            ->all();
+
+        /** @var User $user */
+        $user = User::create($userAttributes);
+        $this->syncOfficeLocation($user, $validated);
 
         return redirect()->route('admin.users.index')->with('success', 'User created successfully.');
     }
@@ -87,13 +100,15 @@ class AdminUserController extends Controller
 
     public function update(Request $request, User $user): RedirectResponse
     {
-        $validated = $request->validate([
+        $validator = validator($request->all(), [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($user->id)],
             'bankak_name' => ['nullable', 'string', 'max:255'],
             'bankak_number' => ['nullable', 'string', 'max:255'],
             'image' => ['nullable', 'image', 'max:2048'],
+            'lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'role' => ['required', Rule::in(['admin', 'office', 'traveler'])],
             'parent_company_id' => [
                 Rule::requiredIf(fn () => $request->input('role') === 'office'),
@@ -107,6 +122,10 @@ class AdminUserController extends Controller
                 'exists:states,id',
             ],
         ]);
+
+        $this->validateOfficeLocationPair($validator, $request);
+
+        $validated = $validator->validate();
 
         if (($validated['role'] ?? null) !== 'office') {
             $validated['parent_company_id'] = null;
@@ -125,7 +144,12 @@ class AdminUserController extends Controller
             $validated['image'] = $request->file('image')->store('users', 'public');
         }
 
-        $user->update($validated);
+        $userAttributes = collect($validated)
+            ->except(['lat', 'lng'])
+            ->all();
+
+        $user->update($userAttributes);
+        $this->syncOfficeLocation($user->fresh(), $validated, true);
 
         return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
     }
@@ -139,5 +163,49 @@ class AdminUserController extends Controller
         $user->delete();
 
         return redirect()->route('admin.users.index')->with('success', 'User deleted successfully.');
+    }
+
+    private function validateOfficeLocationPair($validator, Request $request): void
+    {
+        $validator->after(function ($validator) use ($request): void {
+            if ($request->input('role') !== 'office') {
+                return;
+            }
+
+            $hasLat = $request->filled('lat');
+            $hasLng = $request->filled('lng');
+
+            if ($hasLat xor $hasLng) {
+                $validator->errors()->add('lat', 'Latitude and longitude must both be provided together.');
+                $validator->errors()->add('lng', 'Latitude and longitude must both be provided together.');
+            }
+        });
+    }
+
+    private function syncOfficeLocation(User $user, array $validated, bool $keepExistingOnBlank = false): void
+    {
+        if (($validated['role'] ?? null) !== 'office') {
+            $user->location()->delete();
+            return;
+        }
+
+        $hasLat = array_key_exists('lat', $validated) && $validated['lat'] !== null && $validated['lat'] !== '';
+        $hasLng = array_key_exists('lng', $validated) && $validated['lng'] !== null && $validated['lng'] !== '';
+
+        if (! $hasLat && ! $hasLng) {
+            if (! $keepExistingOnBlank) {
+                $user->location()->delete();
+            }
+
+            return;
+        }
+
+        OfficeLocation::updateOrCreate(
+            ['office_id' => $user->id],
+            [
+                'lat' => (float) $validated['lat'],
+                'lng' => (float) $validated['lng'],
+            ],
+        );
     }
 }

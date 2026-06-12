@@ -2,6 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Flight;
+use App\Models\OfficeLocation;
 use App\Models\ParentCompany;
 use App\Models\Seat;
 use App\Models\User;
@@ -134,12 +135,17 @@ test('it lists offices with bankak fields', function () {
         'bankak_number' => 123456,
         'parent_company_id' => $zetaCompany->id,
     ]);
-    User::factory()->create([
+    $officeA = User::factory()->create([
         'name' => 'Office A',
         'role' => 'office',
         'bankak_name' => 'Bankak B',
         'bankak_number' => 654321,
         'parent_company_id' => $alphaCompany->id,
+    ]);
+    OfficeLocation::create([
+        'office_id' => $officeA->id,
+        'lat' => 15.5000000,
+        'lng' => 32.5000000,
     ]);
     $traveler = User::factory()->create([
         'role' => 'traveler',
@@ -157,7 +163,10 @@ test('it lists offices with bankak fields', function () {
         ->assertJsonPath('data.0.parent_company_id', $alphaCompany->id)
         ->assertJsonPath('data.0.parent_company_name', 'Alpha Group')
         ->assertJsonPath('data.0.parent_company_image', url('companies/alpha.png'))
+        ->assertJsonPath('data.0.location.lat', 15.5)
+        ->assertJsonPath('data.0.location.lng', 32.5)
         ->assertJsonPath('data.1.name', 'Office Z')
+        ->assertJsonPath('data.1.location', null)
         ->assertJsonPath('data.1.parent_company_name', 'Zeta Group');
 });
 
@@ -171,6 +180,11 @@ test('office can view and update own profile', function () {
         'bankak_name' => 'Old Bankak',
         'bankak_number' => 222222,
     ]);
+    OfficeLocation::create([
+        'office_id' => $office->id,
+        'lat' => 12.3456789,
+        'lng' => 45.6789123,
+    ]);
 
     $this->withHeaders(tokenHeaders($office))
         ->getJson('/api/v1/office/profile')
@@ -179,7 +193,9 @@ test('office can view and update own profile', function () {
         ->assertJsonPath('data.name', 'Office Profile')
         ->assertJsonPath('data.phone', '0911111111')
         ->assertJsonPath('data.bankak_name', 'Old Bankak')
-        ->assertJsonPath('data.bankak_number', 222222);
+        ->assertJsonPath('data.bankak_number', 222222)
+        ->assertJsonPath('data.location.lat', 12.3456789)
+        ->assertJsonPath('data.location.lng', 45.6789123);
 
     $response = $this->withHeaders(tokenHeaders($office))
         ->post('/api/v1/office/profile', [

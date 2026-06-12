@@ -16,7 +16,7 @@ class OfficeController extends Controller
     public function index(): JsonResponse
     {
         $offices = User::query()
-            ->with('parentCompany')
+            ->with(['parentCompany', 'location'])
             ->leftJoin('parent_companies', 'parent_companies.id', '=', 'users.parent_company_id')
             ->where('role', 'office')
             ->orderByRaw('CASE WHEN parent_companies.name IS NULL THEN 1 ELSE 0 END')
@@ -42,6 +42,7 @@ class OfficeController extends Controller
                 'parent_company_id' => $user->parent_company_id,
                 'parent_company_name' => $user->parentCompany?->name,
                 'parent_company_image' => $this->imageUrl($user->parentCompany?->image),
+                'location' => $this->locationPayload($user),
             ])->values(),
         ]);
     }
@@ -158,7 +159,7 @@ class OfficeController extends Controller
 
     private function officePayload(User $user): array
     {
-        $user->loadMissing('state');
+        $user->loadMissing(['state', 'location']);
 
         return [
             'id' => $user->id,
@@ -169,6 +170,23 @@ class OfficeController extends Controller
             'bankak_number' => $user->bankak_number,
             'state_id' => $user->state_id,
             'state_name' => $user->state?->name,
+            'location' => $this->locationPayload($user),
+        ];
+    }
+
+    private function locationPayload(User $user): ?array
+    {
+        if (! $user->relationLoaded('location')) {
+            $user->load('location');
+        }
+
+        if (! $user->location) {
+            return null;
+        }
+
+        return [
+            'lat' => (float) $user->location->lat,
+            'lng' => (float) $user->location->lng,
         ];
     }
 

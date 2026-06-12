@@ -55,6 +55,16 @@
             </select>
         </div>
 
+        <div class="col-md-6" id="lat-field" @if (old('role', $user->role) !== 'office') style="display: none;" @endif>
+            <label class="form-label">Latitude</label>
+            <input type="number" step="any" name="lat" class="form-control" value="{{ old('lat', $user->location?->lat) }}">
+        </div>
+
+        <div class="col-md-6" id="lng-field" @if (old('role', $user->role) !== 'office') style="display: none;" @endif>
+            <label class="form-label">Longitude</label>
+            <input type="number" step="any" name="lng" class="form-control" value="{{ old('lng', $user->location?->lng) }}">
+        </div>
+
         <div class="col-md-6">
             <label class="form-label">Email</label>
             <input type="email" name="email" class="form-control" value="{{ old('email', $user->email) }}">
@@ -98,16 +108,22 @@
         const parentCompanySelect = document.getElementById('parent-company-select');
         const stateField = document.getElementById('state-field');
         const stateSelect = document.getElementById('state-select');
+        const latField = document.getElementById('lat-field');
+        const lngField = document.getElementById('lng-field');
 
         const syncParentCompanyField = () => {
             const isOffice = roleSelect.value === 'office';
             parentCompanyField.style.display = isOffice ? '' : 'none';
             stateField.style.display = isOffice ? '' : 'none';
+            latField.style.display = isOffice ? '' : 'none';
+            lngField.style.display = isOffice ? '' : 'none';
             parentCompanySelect.required = isOffice;
 
             if (!isOffice) {
                 parentCompanySelect.value = '';
                 stateSelect.value = '';
+                latField.querySelector('input').value = '';
+                lngField.querySelector('input').value = '';
             }
         };
 
