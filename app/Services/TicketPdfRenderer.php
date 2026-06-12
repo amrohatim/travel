@@ -13,6 +13,7 @@ class TicketPdfRenderer
     public function render(Booking $booking): string
     {
         $html = view('traveler.ticket', compact('booking'))->render();
+        $this->ensureRuntimeDirectories();
 
         try {
             return $this->browsershot($html)->pdf();
@@ -39,10 +40,6 @@ class TicketPdfRenderer
     {
         $tempPath = storage_path('app/browsershot');
 
-        if (! is_dir($tempPath)) {
-            mkdir($tempPath, 0755, true);
-        }
-
         $browsershot = Browsershot::html($html)
             ->setNodeModulePath(base_path('node_modules'))
             ->setBinPath(base_path('bin/browsershot.cjs'))
@@ -63,6 +60,15 @@ class TicketPdfRenderer
         }
 
         return $browsershot;
+    }
+
+    private function ensureRuntimeDirectories(): void
+    {
+        foreach ([storage_path('app/browsershot'), storage_path('fonts')] as $path) {
+            if (! is_dir($path)) {
+                mkdir($path, 0755, true);
+            }
+        }
     }
 
     private function resolveNodeBinary(): ?string
