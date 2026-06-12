@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\Flight;
+use App\Services\TicketPdfRenderer;
 use Illuminate\Http\Request;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 
 class BookingController extends Controller
@@ -62,7 +62,7 @@ return redirect('/office/bookings')->with('success', 'تم تحديث حالة �
     }
 
 
-public function ticket(Booking $booking)
+public function ticket(Booking $booking, TicketPdfRenderer $ticketPdfRenderer)
 {
     // تأكد إن الحجز للمستخدم نفسه
     if ($booking->traveler_id != auth()->id()) {
@@ -76,8 +76,12 @@ public function ticket(Booking $booking)
     }
 
     $booking->load(['flight', 'traveler', 'seats']);
-    $pdf = Pdf::loadView('traveler.ticket', compact('booking'));
-    return $pdf->download('ticket.pdf');
+    $pdf = $ticketPdfRenderer->render($booking);
+
+    return response($pdf, 200, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'attachment; filename="ticket-'.$booking->serial_number.'.pdf"',
+    ]);
     
 }
 

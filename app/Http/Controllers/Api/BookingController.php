@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Flight;
 use App\Models\Seat;
 use App\Services\FcmNotificationService;
+use App\Services\TicketPdfRenderer;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class BookingController extends Controller
 {
@@ -249,7 +249,7 @@ class BookingController extends Controller
         ]);
     }
 
-    public function ticket(Booking $booking)
+    public function ticket(Booking $booking, TicketPdfRenderer $ticketPdfRenderer)
     {
         if ((int) $booking->traveler_id !== (int) auth()->id()) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -262,10 +262,13 @@ class BookingController extends Controller
         }
 
         $booking->load(['flight', 'traveler', 'seats']);
-        $pdf = Pdf::loadView('traveler.ticket', compact('booking'));
-        $filename = 'ticket-'.$booking->id.'.pdf';
+        $pdf = $ticketPdfRenderer->render($booking);
+        $filename = 'ticket-'.$booking->serial_number.'.pdf';
 
-        return $pdf->download($filename);
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
     }
 
     private function bookingPayload(Booking $booking, bool $includeFlight = false, bool $includeTraveler = false): array
