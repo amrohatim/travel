@@ -778,6 +778,72 @@ test('repeated rejected status does not change seats again', function () {
     expect($flight->fresh()->seats)->toBe(6);
 });
 
+test('traveler bookings include office location when office coordinates exist', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Maps']);
+    OfficeLocation::create([
+        'office_id' => $office->id,
+        'lat' => 15.6123456,
+        'lng' => 32.5345678,
+    ]);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Khartoum',
+        'travel_date' => '2026-10-09',
+        'departure_time' => '2026-10-09 07:30:00',
+        'price' => 500,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 500,
+        'status' => 'confirmed',
+    ]);
+
+    $this->withHeaders(tokenHeaders($traveler))
+        ->getJson('/api/v1/traveler/bookings')
+        ->assertOk()
+        ->assertJsonPath('data.0.flight.location.lat', 15.6123456)
+        ->assertJsonPath('data.0.flight.location.lng', 32.5345678);
+});
+
+test('traveler bookings return null office location when coordinates are missing', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Maps']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-10-12',
+        'departure_time' => '2026-10-12 10:15:00',
+        'price' => 450,
+        'seats' => 18,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 900,
+        'status' => 'confirmed',
+    ]);
+
+    $this->withHeaders(tokenHeaders($traveler))
+        ->getJson('/api/v1/traveler/bookings')
+        ->assertOk()
+        ->assertJsonPath('data.0.flight.location', null);
+});
+
 test('office bookings summary returns total and seats sums excluding rejected and non-demanded bookings', function () {
     $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
     $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);

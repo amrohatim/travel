@@ -117,7 +117,7 @@ class BookingController extends Controller
     public function travelerBookings(Request $request): JsonResponse
     {
         $bookings = Booking::where('traveler_id', $request->user()->id)
-            ->with(['flight', 'seats'])
+            ->with(['flight.officeUser.location', 'seats'])
             ->latest()
             ->get();
 
@@ -131,7 +131,7 @@ class BookingController extends Controller
     {
         $bookings = Booking::whereHas('flight', function ($query) use ($request): void {
             $query->where('office_id', $request->user()->id);
-        })->with(['flight', 'traveler'])->latest()->get();
+        })->with(['flight.officeUser.location', 'traveler'])->latest()->get();
 
         return response()->json([
             'message' => 'Office bookings retrieved successfully',
@@ -284,6 +284,8 @@ class BookingController extends Controller
         ];
 
         if ($includeFlight && $booking->relationLoaded('flight') && $booking->flight) {
+            $location = $booking->flight->officeUser?->location;
+
             $payload['flight'] = [
                 'id' => $booking->flight->id,
                 'from' => $booking->flight->from,
@@ -294,6 +296,12 @@ class BookingController extends Controller
                     : null,
                 'office_id' => $booking->flight->office_id,
                 'office_name' => $booking->flight->office_name,
+                'location' => $location
+                    ? [
+                        'lat' => (float) $location->lat,
+                        'lng' => (float) $location->lng,
+                    ]
+                    : null,
             ];
         }
 

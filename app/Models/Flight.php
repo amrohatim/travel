@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 
 class Flight extends Model
@@ -17,10 +19,13 @@ class Flight extends Model
         'office_name',
     ];
 
-    public function bookings()
+    public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
     }
 
-
+    public function officeUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'office_id');
+    }
 }
