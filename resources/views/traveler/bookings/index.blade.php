@@ -9,7 +9,6 @@
     <th>التاريخ</th>
     <th>المقاعد</th>
     <th>الحالة</th>
-    <th>التذكرة</th>
 </tr>
 
 @foreach($bookings as $booking)
@@ -25,13 +24,6 @@
             @endif">
             {{ $booking->status }}
         </span>
-    </td>
-    <td>
-        @if($booking->status == 'confirmed')
-            <a href="/ticket/{{ $booking->id }}" class="btn btn-sm btn-primary">
-                PDF
-            </a>
-        @endif
     </td>
 </tr>
 @endforeach

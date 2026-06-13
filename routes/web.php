@@ -84,5 +84,4 @@ Route::middleware(['auth', 'role:traveler'])->group(function () {
     Route::get('/flights', [FlightController::class, 'index']);
     Route::post('/flights/{flight}/book', [BookingController::class, 'store']);
     Route::get('/my-bookings', [BookingController::class, 'myBookings']);
-    Route::get('/ticket/{booking}', [BookingController::class, 'ticket']);
 });

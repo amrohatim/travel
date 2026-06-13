@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\Flight;
-use App\Services\TicketPdfRenderer;
 use Illuminate\Http\Request;
 
 
@@ -60,29 +59,4 @@ return redirect('/my-bookings')->with('success', 'تم إرسال طلب الح�
 
 return redirect('/office/bookings')->with('success', 'تم تحديث حالة الحجز');
     }
-
-
-public function ticket(Booking $booking, TicketPdfRenderer $ticketPdfRenderer)
-{
-    // تأكد إن الحجز للمستخدم نفسه
-    if ($booking->traveler_id != auth()->id()) {
-        abort(403);
-    }
-
-    // فقط لو مؤكد
-    if ($booking->status != 'confirmed') {
-        return redirect('/my-bookings')->with('error', 'الحجز غير مؤكد بعد');
-        
-    }
-
-    $booking->load(['flight', 'traveler', 'seats']);
-    $pdf = $ticketPdfRenderer->render($booking);
-
-    return response($pdf, 200, [
-        'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'attachment; filename="ticket-'.$booking->serial_number.'.pdf"',
-    ]);
-    
-}
-
 }

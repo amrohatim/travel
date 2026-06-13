@@ -7,7 +7,6 @@ use App\Models\Booking;
 use App\Models\Flight;
 use App\Models\Seat;
 use App\Services\FcmNotificationService;
-use App\Services\TicketPdfRenderer;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -246,28 +245,6 @@ class BookingController extends Controller
         return response()->json([
             'message' => 'Booking status updated successfully',
             'data' => $this->bookingPayload($booking, true),
-        ]);
-    }
-
-    public function ticket(Booking $booking, TicketPdfRenderer $ticketPdfRenderer)
-    {
-        if ((int) $booking->traveler_id !== (int) auth()->id()) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        if ($booking->status !== 'confirmed') {
-            return response()->json([
-                'message' => 'Booking is not confirmed yet.',
-            ], 422);
-        }
-
-        $booking->load(['flight', 'traveler', 'seats']);
-        $pdf = $ticketPdfRenderer->render($booking);
-        $filename = 'ticket-'.$booking->serial_number.'.pdf';
-
-        return response($pdf, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 
