@@ -126,6 +126,7 @@
         <nav>
             <a href="{{ route('admin.users.index') }}" class="sidebar-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">Users</a>
             <a href="{{ route('admin.flights.index') }}" class="sidebar-link {{ request()->routeIs('admin.flights.*') ? 'active' : '' }}">Flights</a>
+            <a href="{{ route('admin.fees.index') }}" class="sidebar-link {{ request()->routeIs('admin.fees.*') ? 'active' : '' }}">Fees</a>
             <a href="{{ route('admin.bookings.index') }}" class="sidebar-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">Bookings</a>
             <a href="{{ route('admin.states.index') }}" class="sidebar-link {{ request()->routeIs('admin.states.*') ? 'active' : '' }}">States</a>
             <a href="{{ route('admin.parent-companies.index') }}" class="sidebar-link {{ request()->routeIs('admin.parent-companies.*') ? 'active' : '' }}">Parent Companies</a>

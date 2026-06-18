@@ -15,6 +15,7 @@ it('allows admin to access admin pages', function () {
 
     $this->actingAs($admin)->get('/admin/users')->assertOk();
     $this->actingAs($admin)->get('/admin/flights')->assertOk();
+    $this->actingAs($admin)->get('/admin/fees')->assertOk();
     $this->actingAs($admin)->get('/admin/bookings')->assertOk();
     $this->actingAs($admin)->get('/admin/states')->assertOk();
     $this->actingAs($admin)->get('/admin/parent-companies')->assertOk();
@@ -25,6 +26,7 @@ it('blocks non admin users from admin pages', function () {
 
     $this->actingAs($traveler)->get('/admin/users')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/flights')->assertForbidden();
+    $this->actingAs($traveler)->get('/admin/fees')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/bookings')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/states')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/parent-companies')->assertForbidden();
@@ -56,6 +58,7 @@ it('blocks non admin users from admin delete endpoints', function () {
 
     $this->actingAs($traveler)->delete('/admin/flights/'.$flight->id)->assertForbidden();
     $this->actingAs($traveler)->post('/admin/flights/bulk-delete', ['ids' => [$flight->id]])->assertForbidden();
+    $this->actingAs($traveler)->post('/admin/fees/'.$office->id.'/clear')->assertForbidden();
     $this->actingAs($traveler)->delete('/admin/bookings/'.$booking->id)->assertForbidden();
     $this->actingAs($traveler)->post('/admin/bookings/bulk-delete', ['ids' => [$booking->id]])->assertForbidden();
 });
@@ -444,9 +447,238 @@ it('admin pages render expected headings', function () {
     State::query()->create(['name' => 'Test State']);
 
     $this->actingAs($admin)->get('/admin/flights')->assertSeeText('Flights')->assertSeeText('Delete Selected')->assertSeeText('View Seats');
+    $this->actingAs($admin)->get('/admin/fees')->assertSeeText('Fees')->assertSeeText('Clear Fees');
     $this->actingAs($admin)->get('/admin/bookings')->assertSeeText('Bookings')->assertSeeText('Delete Selected')->assertSeeText('View Seats');
     $this->actingAs($admin)->get('/admin/states')->assertSeeText('States');
     $this->actingAs($admin)->get('/admin/parent-companies')->assertSeeText('Parent Companies');
+});
+
+it('fees page lists all offices and aggregates only payable bookings', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+    $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);
+    $officeZero = User::factory()->create(['role' => 'office', 'name' => 'Office Zero']);
+
+    $flightA = Flight::query()->create([
+        'from' => 'A',
+        'to' => 'B',
+        'travel_date' => now()->toDateString(),
+        'departure_time' => '08:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeA->id,
+        'office_name' => $officeA->name,
+    ]);
+    $flightB = Flight::query()->create([
+        'from' => 'C',
+        'to' => 'D',
+        'travel_date' => now()->toDateString(),
+        'departure_time' => '10:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeB->id,
+        'office_name' => $officeB->name,
+    ]);
+    $flightZero = Flight::query()->create([
+        'from' => 'E',
+        'to' => 'F',
+        'travel_date' => now()->toDateString(),
+        'departure_time' => '12:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeZero->id,
+        'office_name' => $officeZero->name,
+    ]);
+
+    Booking::query()->create([
+        'flight_id' => $flightA->id,
+        'office_id' => $officeA->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 200,
+        'status' => 'pending',
+        'demanded' => true,
+    ]);
+    Booking::query()->create([
+        'flight_id' => $flightA->id,
+        'office_id' => $officeA->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 100,
+        'status' => 'confirmed',
+        'demanded' => true,
+    ]);
+    Booking::query()->create([
+        'flight_id' => $flightA->id,
+        'office_id' => $officeA->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 4,
+        'total' => 400,
+        'status' => 'rejected',
+        'demanded' => true,
+    ]);
+    Booking::query()->create([
+        'flight_id' => $flightA->id,
+        'office_id' => $officeA->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 3,
+        'total' => 300,
+        'status' => 'pending',
+        'demanded' => false,
+    ]);
+    Booking::query()->create([
+        'flight_id' => $flightB->id,
+        'office_id' => $officeB->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 5,
+        'total' => 500,
+        'status' => 'pending',
+        'demanded' => true,
+    ]);
+    Booking::query()->create([
+        'flight_id' => $flightZero->id,
+        'office_id' => $officeZero->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 200,
+        'status' => 'rejected',
+        'demanded' => true,
+    ]);
+    Booking::query()->create([
+        'flight_id' => $flightZero->id,
+        'office_id' => $officeZero->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 100,
+        'status' => 'pending',
+        'demanded' => false,
+    ]);
+
+    $response = $this->actingAs($admin)->get('/admin/fees');
+
+    $response->assertOk()
+        ->assertSeeText('Fees')
+        ->assertSeeText('Office A')
+        ->assertSeeText('Office B')
+        ->assertSeeText('Office Zero')
+        ->assertSeeText('2')
+        ->assertSeeText('3')
+        ->assertSeeText('15000 SDG')
+        ->assertSeeText('1')
+        ->assertSeeText('5')
+        ->assertSeeText('25000 SDG')
+        ->assertSeeText('0')
+        ->assertSeeText('Office A')
+        ->assertSee('/admin/fees/'.$officeA->id.'/clear', false);
+});
+
+it('admin can clear fees for one office without affecting other bookings', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+    $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);
+
+    $flightA = Flight::query()->create([
+        'from' => 'A',
+        'to' => 'B',
+        'travel_date' => now()->toDateString(),
+        'departure_time' => '08:30',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeA->id,
+        'office_name' => $officeA->name,
+    ]);
+    $flightB = Flight::query()->create([
+        'from' => 'C',
+        'to' => 'D',
+        'travel_date' => now()->toDateString(),
+        'departure_time' => '09:30',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeB->id,
+        'office_name' => $officeB->name,
+    ]);
+
+    $officeAPayableOne = Booking::query()->create([
+        'flight_id' => $flightA->id,
+        'office_id' => $officeA->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 200,
+        'status' => 'pending',
+        'demanded' => true,
+    ]);
+    $officeAPayableTwo = Booking::query()->create([
+        'flight_id' => $flightA->id,
+        'office_id' => $officeA->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 100,
+        'status' => 'confirmed',
+        'demanded' => true,
+    ]);
+    $officeARejected = Booking::query()->create([
+        'flight_id' => $flightA->id,
+        'office_id' => $officeA->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 4,
+        'total' => 400,
+        'status' => 'rejected',
+        'demanded' => true,
+    ]);
+    $officeAAlreadyCleared = Booking::query()->create([
+        'flight_id' => $flightA->id,
+        'office_id' => $officeA->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 3,
+        'total' => 300,
+        'status' => 'pending',
+        'demanded' => false,
+    ]);
+    $officeBPayable = Booking::query()->create([
+        'flight_id' => $flightB->id,
+        'office_id' => $officeB->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 5,
+        'total' => 500,
+        'status' => 'pending',
+        'demanded' => true,
+    ]);
+
+    $response = $this->actingAs($admin)->post('/admin/fees/'.$officeA->id.'/clear');
+
+    $response->assertRedirect('/admin/fees');
+    $response->assertSessionHas('success', 'Cleared fees for Office A. 2 booking(s) updated.');
+
+    $this->assertDatabaseHas('bookings', [
+        'id' => $officeAPayableOne->id,
+        'demanded' => false,
+    ]);
+    $this->assertDatabaseHas('bookings', [
+        'id' => $officeAPayableTwo->id,
+        'demanded' => false,
+    ]);
+    $this->assertDatabaseHas('bookings', [
+        'id' => $officeARejected->id,
+        'demanded' => true,
+    ]);
+    $this->assertDatabaseHas('bookings', [
+        'id' => $officeAAlreadyCleared->id,
+        'demanded' => false,
+    ]);
+    $this->assertDatabaseHas('bookings', [
+        'id' => $officeBPayable->id,
+        'demanded' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/fees')
+        ->assertOk()
+        ->assertSeeText('Office A')
+        ->assertSeeText('Office B')
+        ->assertSeeText('0 SDG')
+        ->assertSeeText('25000 SDG');
 });
 
 it('admin can view flight seats details with traveler data', function () {

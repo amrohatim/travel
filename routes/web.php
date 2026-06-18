@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminBookingController;
+use App\Http\Controllers\AdminFeeController;
 use App\Http\Controllers\AdminFlightController;
 use App\Http\Controllers\AdminParentCompanyController;
 use App\Http\Controllers\AdminStateController;
@@ -46,6 +47,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/flights/{flight}/seats', [AdminFlightController::class, 'seats'])->name('flights.seats');
     Route::delete('/flights/{flight}', [AdminFlightController::class, 'destroy'])->name('flights.destroy');
     Route::post('/flights/bulk-delete', [AdminFlightController::class, 'bulkDestroy'])->name('flights.bulk-destroy');
+    Route::get('/fees', [AdminFeeController::class, 'index'])->name('fees.index');
+    Route::post('/fees/{office}/clear', [AdminFeeController::class, 'clearOfficeFees'])->name('fees.clear');
     Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
     Route::get('/bookings/{booking}/seats', [AdminBookingController::class, 'seats'])->name('bookings.seats');
     Route::delete('/bookings/{booking}', [AdminBookingController::class, 'destroy'])->name('bookings.destroy');
