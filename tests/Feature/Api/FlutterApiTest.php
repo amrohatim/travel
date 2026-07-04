@@ -424,6 +424,205 @@ test('future flight creation skips duplicates and still creates remaining weekly
     ]);
 });
 
+test('office can update only the price for a flight that already has bookings', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Price Update']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-06-01',
+        'departure_time' => '2026-06-01 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 600,
+        'status' => 'pending',
+        'demanded' => true,
+    ]);
+
+    $response = $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/flights/'.$flight->id, [
+            'from' => 'Dubai',
+            'to' => 'Riyadh',
+            'departure_time' => '2026-06-01 15:45:00',
+            'price' => 450,
+            'seats' => 30,
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('message', 'Flight updated successfully')
+        ->assertJsonPath('data.price', 450)
+        ->assertJsonPath('data.from', 'Dubai')
+        ->assertJsonPath('data.to', 'Riyadh')
+        ->assertJsonPath('data.departure_time', '2026-06-01 15:45:00');
+
+    $this->assertDatabaseHas('flights', [
+        'id' => $flight->id,
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-06-01',
+        'departure_time' => '2026-06-01 15:45:00',
+        'price' => 450,
+        'seats' => 30,
+    ]);
+});
+
+test('office cannot change seats for a flight that already has bookings', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Seat Lock']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-06-01',
+        'departure_time' => '2026-06-01 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 300,
+        'status' => 'pending',
+        'demanded' => true,
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/flights/'.$flight->id, [
+            'from' => 'Dubai',
+            'to' => 'Riyadh',
+            'departure_time' => '2026-06-01 15:45:00',
+            'price' => 450,
+            'seats' => 31,
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'Only the price can be edited when bookings exist.');
+});
+
+test('office cannot change departure time for a flight that already has bookings', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Time Lock']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-06-01',
+        'departure_time' => '2026-06-01 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 300,
+        'status' => 'pending',
+        'demanded' => true,
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/flights/'.$flight->id, [
+            'from' => 'Dubai',
+            'to' => 'Riyadh',
+            'departure_time' => '2026-06-01 16:00:00',
+            'price' => 450,
+            'seats' => 30,
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'Only the price can be edited when bookings exist.');
+});
+
+test('office can fully update a flight that has no bookings', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Full Update']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-06-01',
+        'departure_time' => '2026-06-01 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $response = $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/flights/'.$flight->id, [
+            'from' => 'Abu Dhabi',
+            'to' => 'Jeddah',
+            'departure_time' => '2026-06-02 10:15:00',
+            'price' => 500,
+            'seats' => 18,
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('message', 'Flight updated successfully')
+        ->assertJsonPath('data.from', 'Abu Dhabi')
+        ->assertJsonPath('data.to', 'Jeddah')
+        ->assertJsonPath('data.travel_date', '2026-06-02')
+        ->assertJsonPath('data.departure_time', '2026-06-02 10:15:00')
+        ->assertJsonPath('data.price', 500)
+        ->assertJsonPath('data.seats', 18);
+});
+
+test('office can update booked flight price when departure time format is equivalent', function () {
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Equivalent Time']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-06-01',
+        'departure_time' => '2026-06-01 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Booking::create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 1,
+        'total' => 300,
+        'status' => 'pending',
+        'demanded' => true,
+    ]);
+
+    $response = $this->withHeaders(tokenHeaders($office))
+        ->patchJson('/api/v1/office/flights/'.$flight->id, [
+            'from' => 'Dubai',
+            'to' => 'Riyadh',
+            'departure_time' => '2026-06-01T15:45:00',
+            'price' => 475,
+            'seats' => 30,
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('message', 'Flight updated successfully')
+        ->assertJsonPath('data.price', 475)
+        ->assertJsonPath('data.departure_time', '2026-06-01 15:45:00');
+});
+
 test('traveler cannot access office flight creation endpoint', function () {
     $traveler = User::factory()->create([
         'role' => 'traveler',

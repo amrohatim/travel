@@ -154,12 +154,6 @@ class FlightController extends Controller
             ], 403);
         }
 
-        if ($flight->bookings()->exists()) {
-            return response()->json([
-                'message' => 'This flight cannot be edited because bookings already exist.',
-            ], 422);
-        }
-
         $validator = Validator::make($request->all(), [
             'from' => ['required', 'string', 'max:255'],
             'to' => ['required', 'string', 'max:255'],
@@ -176,14 +170,41 @@ class FlightController extends Controller
         }
 
         $departureTime = Carbon::parse($request->input('departure_time'));
+        $hasBookings = $flight->bookings()->exists();
+        $from = $request->string('from')->toString();
+        $to = $request->string('to')->toString();
+        $price = (int) $request->input('price');
+        $seats = (int) $request->input('seats');
+
+        if ($hasBookings) {
+            $hasNonPriceChanges = $flight->from !== $from
+                || $flight->to !== $to
+                || (int) $flight->seats !== $seats
+                || Carbon::parse($flight->departure_time)->notEqualTo($departureTime);
+
+            if ($hasNonPriceChanges) {
+                return response()->json([
+                    'message' => 'Only the price can be edited when bookings exist.',
+                ], 422);
+            }
+
+            $flight->update([
+                'price' => $price,
+            ]);
+
+            return response()->json([
+                'message' => 'Flight updated successfully',
+                'data' => $this->flightPayload($flight->fresh()),
+            ]);
+        }
 
         $flight->update([
-            'from' => $request->string('from')->toString(),
-            'to' => $request->string('to')->toString(),
+            'from' => $from,
+            'to' => $to,
             'travel_date' => $departureTime->toDateString(),
             'departure_time' => $departureTime->toDateTimeString(),
-            'price' => (int) $request->input('price'),
-            'seats' => (int) $request->input('seats'),
+            'price' => $price,
+            'seats' => $seats,
         ]);
 
         return response()->json([
