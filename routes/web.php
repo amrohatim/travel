@@ -17,6 +17,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('/privacy-policy', [ParentCompanyPublicController::class, 'privacyPolicy'])->name('privacy-policy');
 Route::get('/companies/{parentCompany}', [ParentCompanyPublicController::class, 'show'])->name('companies.show');
 Route::get('/.well-known/assetlinks.json', [ParentCompanyPublicController::class, 'assetLinks']);
 Route::get('/apple-app-site-association', [ParentCompanyPublicController::class, 'appleAppSiteAssociation']);

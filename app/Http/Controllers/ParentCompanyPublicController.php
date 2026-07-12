@@ -8,6 +8,11 @@ use Illuminate\View\View;
 
 class ParentCompanyPublicController extends Controller
 {
+    public function privacyPolicy(): View
+    {
+        return view('privacy-policy');
+    }
+
     public function show(ParentCompany $parentCompany): View
     {
         return view('companies.show', [
@@ -19,7 +24,7 @@ class ParentCompanyPublicController extends Controller
     public function assetLinks(): JsonResponse
     {
         $fingerprints = config('deep_links.android_sha256_fingerprints', []);
-        $packageName = (string) config('deep_links.android_package', 'com.example.safriat');
+        $packageName = (string) config('deep_links.android_package', 'com.safriat.safriat');
 
         return response()->json([
             [

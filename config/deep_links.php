@@ -2,7 +2,7 @@
 
 return [
     'domain' => env('DEEP_LINK_DOMAIN', 'amrochic.com'),
-    'android_package' => env('ANDROID_APP_LINK_PACKAGE', 'com.example.safriat'),
+    'android_package' => env('ANDROID_APP_LINK_PACKAGE', 'com.safriat.safriat'),
     'android_sha256_fingerprints' => array_values(array_filter(array_map(
         static fn (?string $value): string => trim((string) $value),
         explode(',', (string) env('ANDROID_APP_LINK_SHA256_CERT_FINGERPRINTS', ''))
