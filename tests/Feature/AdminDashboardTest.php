@@ -2,6 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Flight;
+use App\Models\HomeMessage;
 use App\Models\OfficeLocation;
 use App\Models\ParentCompany;
 use App\Models\Seat;
@@ -19,6 +20,7 @@ it('allows admin to access admin pages', function () {
     $this->actingAs($admin)->get('/admin/bookings')->assertOk();
     $this->actingAs($admin)->get('/admin/states')->assertOk();
     $this->actingAs($admin)->get('/admin/parent-companies')->assertOk();
+    $this->actingAs($admin)->get('/admin/home-messages')->assertOk();
 });
 
 it('blocks non admin users from admin pages', function () {
@@ -30,6 +32,7 @@ it('blocks non admin users from admin pages', function () {
     $this->actingAs($traveler)->get('/admin/bookings')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/states')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/parent-companies')->assertForbidden();
+    $this->actingAs($traveler)->get('/admin/home-messages')->assertForbidden();
 });
 
 it('blocks non admin users from admin delete endpoints', function () {
@@ -451,6 +454,7 @@ it('admin pages render expected headings', function () {
     $this->actingAs($admin)->get('/admin/bookings')->assertSeeText('Bookings')->assertSeeText('Delete Selected')->assertSeeText('View Seats');
     $this->actingAs($admin)->get('/admin/states')->assertSeeText('States');
     $this->actingAs($admin)->get('/admin/parent-companies')->assertSeeText('Parent Companies');
+    $this->actingAs($admin)->get('/admin/home-messages')->assertSeeText('Home Messages')->assertSeeText('Add Home Message')->assertSeeText('Home Message List');
 });
 
 it('fees page lists all offices and aggregates only payable bookings', function () {
@@ -1119,6 +1123,92 @@ it('parent company admin page renders qr preview and download controls', functio
         ->assertSeeText('Delete')
         ->assertSee('/admin/parent-companies/'.$parentCompany->id.'/qr', false)
         ->assertSee('/admin/parent-companies/'.$parentCompany->id.'/qr/download', false);
+});
+
+it('admin can create a home message with image', function () {
+    Storage::fake('public');
+
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $response = $this->actingAs($admin)->post('/admin/home-messages', [
+        'title' => 'Welcome Home',
+        'description' => 'First launch content for travelers.',
+        'image' => UploadedFile::fake()->image('welcome.jpg'),
+    ]);
+
+    $response->assertRedirect('/admin/home-messages');
+
+    $message = HomeMessage::query()->where('title', 'Welcome Home')->firstOrFail();
+    expect($message->image)->not->toBeNull();
+    $this->assertDatabaseHas('home_messages', [
+        'id' => $message->id,
+        'title' => 'Welcome Home',
+        'description' => 'First launch content for travelers.',
+    ]);
+});
+
+it('admin can create a home message without image', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $response = $this->actingAs($admin)->post('/admin/home-messages', [
+        'title' => 'No Image Message',
+        'description' => 'Text only message.',
+    ]);
+
+    $response->assertRedirect('/admin/home-messages');
+    $this->assertDatabaseHas('home_messages', [
+        'title' => 'No Image Message',
+        'description' => 'Text only message.',
+        'image' => null,
+    ]);
+});
+
+it('admin can update a home message and replace image', function () {
+    Storage::fake('public');
+
+    $admin = User::factory()->create(['role' => 'admin']);
+    $homeMessage = HomeMessage::create([
+        'title' => 'Original Title',
+        'description' => 'Original description',
+        'image' => UploadedFile::fake()->image('original.jpg')->store('home-messages', 'public'),
+    ]);
+
+    $oldImage = $homeMessage->image;
+
+    $response = $this->actingAs($admin)->put('/admin/home-messages/'.$homeMessage->id, [
+        'title' => 'Updated Title',
+        'description' => 'Updated description',
+        'image' => UploadedFile::fake()->image('updated.jpg'),
+    ]);
+
+    $response->assertRedirect('/admin/home-messages');
+
+    $homeMessage->refresh();
+    $this->assertDatabaseHas('home_messages', [
+        'id' => $homeMessage->id,
+        'title' => 'Updated Title',
+        'description' => 'Updated description',
+    ]);
+    expect($homeMessage->image)->not->toBe($oldImage);
+    Storage::disk('public')->assertMissing($oldImage);
+});
+
+it('admin can delete a home message and its stored image', function () {
+    Storage::fake('public');
+
+    $admin = User::factory()->create(['role' => 'admin']);
+    $imagePath = UploadedFile::fake()->image('delete-me.jpg')->store('home-messages', 'public');
+    $homeMessage = HomeMessage::create([
+        'title' => 'Delete Me',
+        'description' => 'Delete this message',
+        'image' => $imagePath,
+    ]);
+
+    $response = $this->actingAs($admin)->delete('/admin/home-messages/'.$homeMessage->id);
+
+    $response->assertRedirect('/admin/home-messages');
+    $this->assertDatabaseMissing('home_messages', ['id' => $homeMessage->id]);
+    Storage::disk('public')->assertMissing($imagePath);
 });
 
 it('admin can preview and download a parent company qr code png', function () {

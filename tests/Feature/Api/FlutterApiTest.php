@@ -2,6 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Flight;
+use App\Models\HomeMessage;
 use App\Models\OfficeLocation;
 use App\Models\ParentCompany;
 use App\Models\Seat;
@@ -168,6 +169,43 @@ test('it lists offices with bankak fields', function () {
         ->assertJsonPath('data.1.name', 'Office Z')
         ->assertJsonPath('data.1.location', null)
         ->assertJsonPath('data.1.parent_company_name', 'Zeta Group');
+});
+
+test('it lists home messages publicly in latest-first order', function () {
+    HomeMessage::create([
+        'title' => 'Older Message',
+        'description' => 'Shown second',
+        'image' => 'home-messages/older.jpg',
+    ]);
+    $latest = HomeMessage::create([
+        'title' => 'Latest Message',
+        'description' => 'Shown first',
+        'image' => 'https://cdn.example.com/latest.jpg',
+    ]);
+
+    $response = $this->getJson('/api/v1/home-messages');
+
+    $response->assertOk()
+        ->assertJsonPath('message', 'Home messages retrieved successfully')
+        ->assertJsonPath('data.0.id', $latest->id)
+        ->assertJsonPath('data.0.title', 'Latest Message')
+        ->assertJsonPath('data.0.description', 'Shown first')
+        ->assertJsonPath('data.0.image', 'https://cdn.example.com/latest.jpg')
+        ->assertJsonPath('data.1.title', 'Older Message')
+        ->assertJsonPath('data.1.image', url('storage/home-messages/older.jpg'));
+});
+
+test('home messages api returns null image when not provided', function () {
+    HomeMessage::create([
+        'title' => 'No Image',
+        'description' => 'Image is optional',
+        'image' => null,
+    ]);
+
+    $this->getJson('/api/v1/home-messages')
+        ->assertOk()
+        ->assertJsonPath('data.0.title', 'No Image')
+        ->assertJsonPath('data.0.image', null);
 });
 
 test('office can view and update own profile', function () {

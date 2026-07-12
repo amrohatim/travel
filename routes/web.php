@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminBookingController;
 use App\Http\Controllers\AdminFeeController;
 use App\Http\Controllers\AdminFlightController;
+use App\Http\Controllers\AdminHomeMessageController;
 use App\Http\Controllers\AdminParentCompanyController;
 use App\Http\Controllers\AdminStateController;
 use App\Http\Controllers\AdminUserController;
@@ -65,6 +66,11 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/parent-companies/{parentCompany}/image', [AdminParentCompanyController::class, 'updateImage'])->name('parent-companies.image.update');
     Route::get('/parent-companies/{parentCompany}/qr', [AdminParentCompanyController::class, 'qrPreview'])->name('parent-companies.qr.preview');
     Route::get('/parent-companies/{parentCompany}/qr/download', [AdminParentCompanyController::class, 'downloadQr'])->name('parent-companies.qr.download');
+
+    Route::get('/home-messages', [AdminHomeMessageController::class, 'index'])->name('home-messages.index');
+    Route::post('/home-messages', [AdminHomeMessageController::class, 'store'])->name('home-messages.store');
+    Route::put('/home-messages/{homeMessage}', [AdminHomeMessageController::class, 'update'])->name('home-messages.update');
+    Route::delete('/home-messages/{homeMessage}', [AdminHomeMessageController::class, 'destroy'])->name('home-messages.destroy');
 });
 
 Route::middleware(['auth', 'role:office'])->group(function () {

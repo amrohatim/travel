@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\FlightController;
+use App\Http\Controllers\Api\HomeMessageController;
 use App\Http\Controllers\Api\NotificationTokenController;
 use App\Http\Controllers\Api\OfficeController;
 use App\Http\Controllers\Api\StateController;
@@ -16,6 +17,7 @@ Route::prefix('v1')->group(function (): void {
 
     Route::get('/flights', [FlightController::class, 'index']);
     Route::get('/states', [StateController::class, 'index']);
+    Route::get('/home-messages', [HomeMessageController::class, 'index']);
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
