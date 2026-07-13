@@ -13,6 +13,7 @@ function notificationAuthHeaders(User $user): array
     return [
         'Authorization' => 'Bearer '.$token,
         'Accept' => 'application/json',
+        'X-Device-ID' => 'notification-device-'.$user->id,
     ];
 }
 

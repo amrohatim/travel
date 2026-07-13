@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'auth' => Authenticate::class,
+            'device.status' => \App\Http\Middleware\CheckDeviceStatus::class,
             'role' => \App\Http\Middleware\CheckRole::class,
         ]);
     })

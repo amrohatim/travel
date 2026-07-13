@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Booking;
+use App\Models\Device;
 use App\Models\Flight;
 use App\Models\HomeMessage;
 use App\Models\OfficeLocation;
@@ -420,6 +421,79 @@ it('admin can delete another user', function () {
 
     $response->assertRedirect('/admin/users');
     $this->assertDatabaseMissing('users', ['id' => $user->id]);
+});
+
+it('admin can suspend a user and all known devices', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $user = User::factory()->create(['role' => 'traveler']);
+    Device::create([
+        'user_id' => $user->id,
+        'device_id' => 'device-admin-suspend-1',
+        'device_model' => 'Pixel',
+        'platform' => 'android',
+    ]);
+    $user->createToken('test-token')->plainTextToken;
+
+    $response = $this->actingAs($admin)->post('/admin/users/'.$user->id.'/suspend', [
+        'reason' => 'Abuse detected',
+    ]);
+
+    $response->assertRedirect('/admin/users');
+    $this->assertDatabaseHas('users', [
+        'id' => $user->id,
+        'is_suspended' => true,
+        'suspension_reason' => 'Abuse detected',
+    ]);
+    $this->assertDatabaseHas('devices', [
+        'device_id' => 'device-admin-suspend-1',
+        'is_suspended' => true,
+        'suspension_reason' => 'Abuse detected',
+    ]);
+    expect($user->tokens()->count())->toBe(0);
+});
+
+it('admin can unsuspend a user and linked devices', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $user = User::factory()->create([
+        'role' => 'traveler',
+        'is_suspended' => true,
+        'suspension_reason' => 'Cleanup',
+        'suspended_at' => now(),
+    ]);
+    Device::create([
+        'user_id' => $user->id,
+        'device_id' => 'device-admin-unsuspend-1',
+        'is_suspended' => true,
+        'suspension_reason' => 'Cleanup',
+        'suspended_at' => now(),
+    ]);
+
+    $response = $this->actingAs($admin)->post('/admin/users/'.$user->id.'/unsuspend');
+
+    $response->assertRedirect('/admin/users');
+    $this->assertDatabaseHas('users', [
+        'id' => $user->id,
+        'is_suspended' => false,
+        'suspension_reason' => null,
+    ]);
+    $this->assertDatabaseHas('devices', [
+        'device_id' => 'device-admin-unsuspend-1',
+        'is_suspended' => false,
+        'suspension_reason' => null,
+    ]);
+});
+
+it('non admin cannot suspend or unsuspend users', function () {
+    $traveler = User::factory()->create(['role' => 'traveler']);
+    $target = User::factory()->create(['role' => 'traveler']);
+
+    $this->actingAs($traveler)
+        ->post('/admin/users/'.$target->id.'/suspend', ['reason' => 'Nope'])
+        ->assertForbidden();
+
+    $this->actingAs($traveler)
+        ->post('/admin/users/'.$target->id.'/unsuspend')
+        ->assertForbidden();
 });
 
 it('admin pages render expected headings', function () {

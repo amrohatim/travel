@@ -30,6 +30,9 @@ class User extends Authenticatable
         'bankak_number',
         'password',
         'role',
+        'is_suspended',
+        'suspension_reason',
+        'suspended_at',
         'parent_company_id',
         'state_id',
     ];
@@ -55,7 +58,14 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_suspended' => 'boolean',
+            'suspended_at' => 'datetime',
         ];
+    }
+
+    public function devices(): HasMany
+    {
+        return $this->hasMany(Device::class);
     }
 
     public function deviceTokens(): HasMany

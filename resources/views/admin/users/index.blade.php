@@ -22,6 +22,8 @@
                         <th>Parent Company</th>
                         <th>State</th>
                         <th>Role</th>
+                        <th>Status</th>
+                        <th>Devices</th>
                         <th>Created</th>
                         <th class="text-end">Actions</th>
                     </tr>
@@ -50,9 +52,40 @@
                             <td>{{ $user->role === 'office' ? ($user->parentCompany?->name ?: '-') : '-' }}</td>
                             <td>{{ $user->role === 'office' ? ($user->state?->name ?: '-') : '-' }}</td>
                             <td>{{ $user->role }}</td>
+                            <td>
+                                @if ($user->is_suspended)
+                                    <div class="text-danger fw-semibold">Suspended</div>
+                                    <div class="small text-muted">{{ $user->suspension_reason ?: 'No reason provided' }}</div>
+                                @else
+                                    <span class="text-success fw-semibold">Active</span>
+                                @endif
+                            </td>
+                            <td>
+                                @php
+                                    $latestDevice = $user->devices->first();
+                                @endphp
+                                <div>{{ $user->devices->count() }} known</div>
+                                @if ($latestDevice)
+                                    <div class="small text-muted">
+                                        {{ $latestDevice->platform ?: 'unknown' }} / {{ $latestDevice->device_model ?: 'unknown device' }}
+                                    </div>
+                                @endif
+                            </td>
                             <td>{{ $user->created_at?->format('Y-m-d H:i') }}</td>
                             <td class="text-end">
                                 <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-outline-mono">Edit</a>
+                                @if ($user->is_suspended)
+                                    <form method="POST" action="{{ route('admin.users.unsuspend', $user) }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-outline-mono">Unsuspend</button>
+                                    </form>
+                                @else
+                                    <form method="POST" action="{{ route('admin.users.suspend', $user) }}" class="d-inline" onsubmit="const reason = window.prompt('Suspension reason'); if (!reason || !reason.trim()) { return false; } this.querySelector('input[name=reason]').value = reason.trim(); return true;">
+                                        @csrf
+                                        <input type="hidden" name="reason" value="">
+                                        <button type="submit" class="btn btn-sm btn-outline-mono">Suspend</button>
+                                    </form>
+                                @endif
                                 <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="d-inline" onsubmit="return confirm('Delete this user?');">
                                     @csrf
                                     @method('DELETE')

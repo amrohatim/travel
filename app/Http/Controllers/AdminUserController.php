@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Device;
 use App\Models\OfficeLocation;
 use App\Models\ParentCompany;
 use App\Models\State;
@@ -17,7 +18,9 @@ class AdminUserController extends Controller
     public function index(): View
     {
         $users = User::query()
-            ->with(['parentCompany', 'state'])
+            ->with(['parentCompany', 'state', 'devices' => function ($query): void {
+                $query->latest();
+            }])
             ->orderByDesc('created_at')
             ->paginate(15);
 
@@ -163,6 +166,55 @@ class AdminUserController extends Controller
         $user->delete();
 
         return redirect()->route('admin.users.index')->with('success', 'User deleted successfully.');
+    }
+
+    public function suspend(Request $request, User $user): RedirectResponse
+    {
+        if ($user->id === auth()->id()) {
+            return redirect()->route('admin.users.index')->with('error', 'You cannot suspend your own account.');
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $timestamp = now();
+        $reason = trim($validated['reason']);
+
+        $user->update([
+            'is_suspended' => true,
+            'suspension_reason' => $reason,
+            'suspended_at' => $timestamp,
+        ]);
+
+        $user->devices()->update([
+            'is_suspended' => true,
+            'suspension_reason' => $reason,
+            'suspended_at' => $timestamp,
+        ]);
+
+        $user->tokens()->delete();
+
+        return redirect()->route('admin.users.index')->with('success', 'User suspended successfully.');
+    }
+
+    public function unsuspend(User $user): RedirectResponse
+    {
+        $user->update([
+            'is_suspended' => false,
+            'suspension_reason' => null,
+            'suspended_at' => null,
+        ]);
+
+        Device::query()
+            ->where('user_id', $user->id)
+            ->update([
+                'is_suspended' => false,
+                'suspension_reason' => null,
+                'suspended_at' => null,
+            ]);
+
+        return redirect()->route('admin.users.index')->with('success', 'User unsuspended successfully.');
     }
 
     private function validateOfficeLocationPair($validator, Request $request): void

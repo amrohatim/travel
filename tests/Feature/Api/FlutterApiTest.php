@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Booking;
+use App\Models\Device;
 use App\Models\Flight;
 use App\Models\HomeMessage;
 use App\Models\OfficeLocation;
@@ -18,6 +19,7 @@ function tokenHeaders(User $user): array
     return [
         'Authorization' => 'Bearer '.$token,
         'Accept' => 'application/json',
+        'X-Device-ID' => 'test-device-'.$user->id,
     ];
 }
 
@@ -27,6 +29,9 @@ test('it registers traveler and returns token', function () {
         'phone' => '0999999991',
         'password' => 'password123',
         'password_confirmation' => 'password123',
+        'device_id' => 'device-register-1',
+        'device_model' => 'Pixel Test',
+        'platform' => 'android',
     ]);
 
     $response->assertCreated()
@@ -35,6 +40,11 @@ test('it registers traveler and returns token', function () {
         ->assertJsonPath('data.user.role', 'traveler');
 
     expect($response->json('data.token'))->not->toBeEmpty();
+    $this->assertDatabaseHas('devices', [
+        'device_id' => 'device-register-1',
+        'platform' => 'android',
+        'device_model' => 'Pixel Test',
+    ]);
 });
 
 test('it logs in and logs out with sanctum token', function () {
@@ -47,6 +57,9 @@ test('it logs in and logs out with sanctum token', function () {
     $login = $this->postJson('/api/v1/auth/login', [
         'phone' => $user->phone,
         'password' => 'password123',
+        'device_id' => 'device-login-1',
+        'device_model' => 'iPhone Test',
+        'platform' => 'ios',
     ]);
 
     $login->assertOk()
@@ -57,6 +70,7 @@ test('it logs in and logs out with sanctum token', function () {
     $this->withHeaders([
         'Authorization' => 'Bearer '.$token,
         'Accept' => 'application/json',
+        'X-Device-ID' => 'device-login-1',
     ])->postJson('/api/v1/auth/logout')->assertOk()
         ->assertJsonPath('message', 'Logged out successfully');
 });
@@ -67,6 +81,7 @@ test('registration requires a valid 10 digit phone', function () {
         'phone' => '09999',
         'password' => 'password123',
         'password_confirmation' => 'password123',
+        'device_id' => 'device-invalid-1',
     ]);
 
     $response->assertStatus(422)
@@ -83,10 +98,23 @@ test('registration rejects duplicate phone', function () {
         'phone' => '0999999994',
         'password' => 'password123',
         'password_confirmation' => 'password123',
+        'device_id' => 'device-duplicate-1',
     ]);
 
     $response->assertStatus(422)
         ->assertJsonPath('message', 'Validation failed');
+});
+
+test('registration requires device id', function () {
+    $response = $this->postJson('/api/v1/auth/register', [
+        'name' => 'Traveler Missing Device',
+        'phone' => '0999999993',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJsonPath('errors.device_id.0', 'The device id field is required.');
 });
 
 test('office and admin can login using phone', function () {
@@ -104,14 +132,104 @@ test('office and admin can login using phone', function () {
     $this->postJson('/api/v1/auth/login', [
         'phone' => $office->phone,
         'password' => 'password123',
+        'device_id' => 'device-office-login',
     ])->assertOk()
         ->assertJsonPath('data.user.role', 'office');
 
     $this->postJson('/api/v1/auth/login', [
         'phone' => $admin->phone,
         'password' => 'password123',
+        'device_id' => 'device-admin-login',
     ])->assertOk()
         ->assertJsonPath('data.user.role', 'admin');
+});
+
+test('login requires device id', function () {
+    $user = User::factory()->create([
+        'phone' => '0999999900',
+        'password' => Hash::make('password123'),
+        'role' => 'traveler',
+    ]);
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $user->phone,
+        'password' => 'password123',
+    ])->assertStatus(422)
+        ->assertJsonPath('errors.device_id.0', 'The device id field is required.');
+});
+
+test('login rejects suspended user', function () {
+    $user = User::factory()->create([
+        'phone' => '0999999910',
+        'password' => Hash::make('password123'),
+        'role' => 'traveler',
+        'is_suspended' => true,
+        'suspension_reason' => 'Terms violation',
+        'suspended_at' => now(),
+    ]);
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $user->phone,
+        'password' => 'password123',
+        'device_id' => 'device-suspended-user',
+    ])->assertStatus(403)
+        ->assertJsonPath('message', 'Account suspended')
+        ->assertJsonPath('reason', 'Terms violation');
+});
+
+test('login rejects suspended device', function () {
+    Device::create([
+        'device_id' => 'device-suspended-1',
+        'is_suspended' => true,
+        'suspension_reason' => 'Repeated abuse',
+        'suspended_at' => now(),
+    ]);
+
+    $user = User::factory()->create([
+        'phone' => '0999999911',
+        'password' => Hash::make('password123'),
+        'role' => 'traveler',
+    ]);
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $user->phone,
+        'password' => 'password123',
+        'device_id' => 'device-suspended-1',
+    ])->assertStatus(403)
+        ->assertJsonPath('message', 'Device suspended')
+        ->assertJsonPath('reason', 'Repeated abuse');
+});
+
+test('authenticated endpoint rejects suspended user', function () {
+    $user = User::factory()->create([
+        'role' => 'traveler',
+        'is_suspended' => true,
+        'suspension_reason' => 'Fraud review',
+        'suspended_at' => now(),
+    ]);
+
+    $this->withHeaders(tokenHeaders($user))
+        ->getJson('/api/v1/offices')
+        ->assertStatus(403)
+        ->assertJsonPath('message', 'Account suspended')
+        ->assertJsonPath('reason', 'Fraud review');
+});
+
+test('authenticated endpoint rejects suspended device', function () {
+    $user = User::factory()->create(['role' => 'traveler']);
+    Device::create([
+        'user_id' => $user->id,
+        'device_id' => 'test-device-'.$user->id,
+        'is_suspended' => true,
+        'suspension_reason' => 'Blocked device',
+        'suspended_at' => now(),
+    ]);
+
+    $this->withHeaders(tokenHeaders($user))
+        ->getJson('/api/v1/offices')
+        ->assertStatus(403)
+        ->assertJsonPath('message', 'Device suspended')
+        ->assertJsonPath('reason', 'Blocked device');
 });
 
 test('it requires authentication for protected endpoints', function () {

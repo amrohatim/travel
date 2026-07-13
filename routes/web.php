@@ -44,6 +44,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/users/{user}/edit', [AdminUserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+    Route::post('/users/{user}/suspend', [AdminUserController::class, 'suspend'])->name('users.suspend');
+    Route::post('/users/{user}/unsuspend', [AdminUserController::class, 'unsuspend'])->name('users.unsuspend');
 
     Route::get('/flights', [AdminFlightController::class, 'index'])->name('flights.index');
     Route::get('/flights/{flight}/seats', [AdminFlightController::class, 'seats'])->name('flights.seats');
