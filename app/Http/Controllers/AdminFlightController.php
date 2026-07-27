@@ -42,7 +42,7 @@ class AdminFlightController extends Controller
         return view('admin.flights.index', compact('flights', 'states', 'offices'));
     }
 
-    public function createFuture(): View
+    public function createFuture(Request $request): View
     {
         $offices = User::query()
             ->where('role', 'office')
@@ -53,7 +53,30 @@ class AdminFlightController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return view('admin.flights.create-future', compact('offices', 'states'));
+        $selectedOfficeId = $request->filled('office_id')
+            ? (int) $request->query('office_id')
+            : (old('office_id') ? (int) old('office_id') : null);
+
+        $selectedOffice = null;
+        $officeFlights = null;
+
+        if ($selectedOfficeId) {
+            $selectedOffice = User::query()
+                ->where('role', 'office')
+                ->where('id', $selectedOfficeId)
+                ->first();
+
+            if ($selectedOffice) {
+                $officeFlights = Flight::query()
+                    ->where('office_id', $selectedOffice->id)
+                    ->orderByDesc('travel_date')
+                    ->orderByDesc('departure_time')
+                    ->paginate(10)
+                    ->withQueryString();
+            }
+        }
+
+        return view('admin.flights.create-future', compact('offices', 'states', 'selectedOffice', 'officeFlights'));
     }
 
     public function storeFuture(Request $request): RedirectResponse
@@ -98,7 +121,7 @@ class AdminFlightController extends Controller
         );
 
         return redirect()
-            ->route('admin.flights.future.create')
+            ->route('admin.flights.future.create', ['office_id' => $office->id])
             ->with('success', $summary);
     }
 
