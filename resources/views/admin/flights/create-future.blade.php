@@ -41,12 +41,22 @@
 
         <div class="col-md-6">
             <label class="form-label">From</label>
-            <input type="text" name="from" class="form-control" value="{{ old('from') }}" required>
+            <select name="from" class="form-select" required>
+                <option value="">Select departure state</option>
+                @foreach ($states as $state)
+                    <option value="{{ $state->name }}" @selected(old('from') === $state->name)>{{ $state->name }}</option>
+                @endforeach
+            </select>
         </div>
 
         <div class="col-md-6">
             <label class="form-label">To</label>
-            <input type="text" name="to" class="form-control" value="{{ old('to') }}" required>
+            <select name="to" class="form-select" required>
+                <option value="">Select destination state</option>
+                @foreach ($states as $state)
+                    <option value="{{ $state->name }}" @selected(old('to') === $state->name)>{{ $state->name }}</option>
+                @endforeach
+            </select>
         </div>
 
         <div class="col-md-4">

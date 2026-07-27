@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Flight;
 use App\Models\Seat;
+use App\Models\State;
 use App\Models\User;
 use App\Services\FutureFlightService;
 use Illuminate\Http\RedirectResponse;
@@ -34,7 +35,11 @@ class AdminFlightController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return view('admin.flights.create-future', compact('offices'));
+        $states = State::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('admin.flights.create-future', compact('offices', 'states'));
     }
 
     public function storeFuture(Request $request): RedirectResponse
