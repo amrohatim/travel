@@ -75,8 +75,9 @@ class AdminFlightController extends Controller
             if ($selectedOffice) {
                 $officeFlights = Flight::query()
                     ->where('office_id', $selectedOffice->id)
-                    ->orderByDesc('travel_date')
-                    ->orderByDesc('departure_time')
+                    ->orderByRaw('ABS(DATEDIFF(travel_date, ?)) ASC', [$today])
+                    ->orderBy('travel_date')
+                    ->orderBy('departure_time')
                     ->paginate(10)
                     ->withQueryString();
             }

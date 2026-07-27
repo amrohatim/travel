@@ -1560,6 +1560,54 @@ it('admin future flights page shows selected office flights under the form', fun
         ->assertDontSeeText('Madani');
 });
 
+it('admin future flights page orders selected office flights by closest travel date first', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Alpha']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-02',
+        'departure_time' => '2026-08-02 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-07-30',
+        'departure_time' => '2026-07-30 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-07-12',
+        'departure_time' => '2026-07-12 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $response = $this->actingAs($admin)->get('/admin/flights/future/create?office_id='.$office->id);
+
+    $response->assertOk();
+
+    $content = $response->getContent();
+    expect(strpos($content, '2026-07-30'))->toBeLessThan(strpos($content, '2026-08-02'));
+    expect(strpos($content, '2026-08-02'))->toBeLessThan(strpos($content, '2026-07-12'));
+});
+
 it('admin future flights page shows empty state for selected office without flights', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $office = User::factory()->create(['role' => 'office', 'name' => 'Office Empty']);
