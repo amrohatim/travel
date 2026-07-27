@@ -18,14 +18,28 @@ class AdminFlightController extends Controller
         private readonly FutureFlightService $futureFlightService
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $states = State::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $offices = User::query()
+            ->where('role', 'office')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         $flights = Flight::query()
+            ->when($request->filled('from'), fn ($query) => $query->where('from', $request->string('from')->toString()))
+            ->when($request->filled('to'), fn ($query) => $query->where('to', $request->string('to')->toString()))
+            ->when($request->filled('travel_date'), fn ($query) => $query->whereDate('travel_date', $request->string('travel_date')->toString()))
+            ->when($request->filled('office_id'), fn ($query) => $query->where('office_id', (int) $request->input('office_id')))
             ->orderByDesc('travel_date')
             ->orderByDesc('departure_time')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
-        return view('admin.flights.index', compact('flights'));
+        return view('admin.flights.index', compact('flights', 'states', 'offices'));
     }
 
     public function createFuture(): View

@@ -7,6 +7,48 @@
 </div>
 
 <div class="panel">
+    <form method="GET" action="{{ route('admin.flights.index') }}" class="row g-3 mb-4">
+        <div class="col-md-3">
+            <label class="form-label">From</label>
+            <select name="from" class="form-select">
+                <option value="">All departure states</option>
+                @foreach ($states as $state)
+                    <option value="{{ $state->name }}" @selected(request('from') === $state->name)>{{ $state->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">To</label>
+            <select name="to" class="form-select">
+                <option value="">All destination states</option>
+                @foreach ($states as $state)
+                    <option value="{{ $state->name }}" @selected(request('to') === $state->name)>{{ $state->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Travel Date</label>
+            <input type="date" name="travel_date" class="form-control" value="{{ request('travel_date') }}">
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Office</label>
+            <select name="office_id" class="form-select">
+                <option value="">All offices</option>
+                @foreach ($offices as $office)
+                    <option value="{{ $office->id }}" @selected((string) request('office_id') === (string) $office->id)>{{ $office->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-mono">Filter</button>
+            <a href="{{ route('admin.flights.index') }}" class="btn btn-outline-mono">Reset</a>
+        </div>
+    </form>
+
     @if ($flights->count())
         <div class="table-responsive">
             <table class="table table-striped align-middle mb-0">

@@ -1098,6 +1098,262 @@ it('bulk delete endpoints validate ids', function () {
         ->assertSessionHasErrors(['ids']);
 });
 
+it('admin can load flights page without filters', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-05',
+        'departure_time' => '2026-08-05 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights')
+        ->assertOk()
+        ->assertSeeText('Khartoum')
+        ->assertSeeText('Port Sudan')
+        ->assertSeeText('Office A');
+});
+
+it('admin can filter flights by from state', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+    State::query()->create(['name' => 'Madani']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-05',
+        'departure_time' => '2026-08-05 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+    Flight::query()->create([
+        'from' => 'Madani',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-06',
+        'departure_time' => '2026-08-06 09:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights?from=Khartoum')
+        ->assertOk()
+        ->assertSeeText('Khartoum')
+        ->assertDontSeeText('Madani');
+});
+
+it('admin can filter flights by to state', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+    State::query()->create(['name' => 'Madani']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-05',
+        'departure_time' => '2026-08-05 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Madani',
+        'travel_date' => '2026-08-06',
+        'departure_time' => '2026-08-06 09:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights?to=Port%20Sudan')
+        ->assertOk()
+        ->assertSeeText('Port Sudan')
+        ->assertDontSeeText('Madani');
+});
+
+it('admin can filter flights by travel date', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-05',
+        'departure_time' => '2026-08-05 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-06',
+        'departure_time' => '2026-08-06 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights?travel_date=2026-08-05')
+        ->assertOk()
+        ->assertSeeText('2026-08-05')
+        ->assertDontSeeText('2026-08-06');
+});
+
+it('admin can filter flights by office', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-05',
+        'departure_time' => '2026-08-05 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeA->id,
+        'office_name' => $officeA->name,
+    ]);
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-06',
+        'departure_time' => '2026-08-06 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeB->id,
+        'office_name' => $officeB->name,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights?office_id='.$officeA->id)
+        ->assertOk()
+        ->assertSeeText('Office A')
+        ->assertDontSeeText('Office B');
+});
+
+it('admin can combine flight filters', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+    State::query()->create(['name' => 'Madani']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-05',
+        'departure_time' => '2026-08-05 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeA->id,
+        'office_name' => $officeA->name,
+    ]);
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Madani',
+        'travel_date' => '2026-08-05',
+        'departure_time' => '2026-08-05 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeA->id,
+        'office_name' => $officeA->name,
+    ]);
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-05',
+        'departure_time' => '2026-08-05 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeB->id,
+        'office_name' => $officeB->name,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights?from=Khartoum&to=Port%20Sudan&travel_date=2026-08-05&office_id='.$officeA->id)
+        ->assertOk()
+        ->assertSeeText('Office A')
+        ->assertDontSeeText('Office B')
+        ->assertDontSeeText('Madani');
+});
+
+it('non admin users are forbidden from filtered admin flights page', function () {
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $this->actingAs($traveler)
+        ->get('/admin/flights?from=Khartoum&travel_date=2026-08-05')
+        ->assertForbidden();
+});
+
+it('flight pagination keeps active filters', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+
+    foreach (range(1, 21) as $day) {
+        Flight::query()->create([
+            'from' => 'Khartoum',
+            'to' => 'Port Sudan',
+            'travel_date' => sprintf('2026-08-%02d', $day),
+            'departure_time' => sprintf('2026-08-%02d 08:00:00', $day),
+            'price' => 100,
+            'seats' => 20,
+            'office_id' => $officeA->id,
+            'office_name' => $officeA->name,
+        ]);
+    }
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-22',
+        'departure_time' => '2026-08-22 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $officeB->id,
+        'office_name' => $officeB->name,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights?from=Khartoum&to=Port%20Sudan&office_id='.$officeA->id)
+        ->assertOk()
+        ->assertSee('/admin/flights?page=2&amp;from=Khartoum&amp;to=Port%20Sudan&amp;office_id='.$officeA->id, false);
+});
+
 it('admin can create future flights for a selected office from the dashboard', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $office = User::factory()->create(['role' => 'office', 'name' => 'Office Future Admin']);
