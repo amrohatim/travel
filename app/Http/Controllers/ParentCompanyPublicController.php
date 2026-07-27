@@ -18,6 +18,10 @@ class ParentCompanyPublicController extends Controller
         return view('companies.show', [
             'parentCompany' => $parentCompany,
             'appDeepLinkUrl' => $parentCompany->appDeepLinkUrl(),
+            'androidStoreUrl' => (string) config(
+                'deep_links.android_store_url',
+                'https://play.google.com/store/apps/details?id=com.safriat.safriat'
+            ),
         ]);
     }
 

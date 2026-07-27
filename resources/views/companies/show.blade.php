@@ -111,16 +111,47 @@
 
         <div class="actions">
             <a class="btn btn-primary" href="{{ $appDeepLinkUrl }}">Open In App</a>
+            <a class="btn" href="{{ $androidStoreUrl }}">Get The App</a>
             <a class="btn" href="{{ url('/') }}">Visit Website</a>
         </div>
 
-        <p class="hint">If the app does not open automatically, tap "Open In App". This page is also safe for printed QR codes on stickers and marketing material.</p>
+        <p class="hint">If the app does not open automatically on Android, Google Play will open shortly. Other devices will stay on this page, where you can use "Open In App" manually.</p>
     </div>
 
     <script>
-        window.setTimeout(function () {
-            window.location.href = @json($appDeepLinkUrl);
-        }, 350);
+        (function () {
+            var appDeepLinkUrl = @json($appDeepLinkUrl);
+            var androidStoreUrl = @json($androidStoreUrl);
+            var isAndroid = /Android/i.test(window.navigator.userAgent || '');
+            var didHide = false;
+
+            function markHidden() {
+                didHide = true;
+            }
+
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'hidden') {
+                    markHidden();
+                }
+            });
+
+            window.addEventListener('pagehide', markHidden);
+            window.addEventListener('blur', markHidden);
+
+            window.setTimeout(function () {
+                window.location.href = appDeepLinkUrl;
+            }, 350);
+
+            if (!isAndroid) {
+                return;
+            }
+
+            window.setTimeout(function () {
+                if (!didHide && document.visibilityState === 'visible') {
+                    window.location.href = androidStoreUrl;
+                }
+            }, 1600);
+        })();
     </script>
 </body>
 </html>

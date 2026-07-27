@@ -1306,10 +1306,19 @@ it('admin can preview and download a parent company qr code png', function () {
 it('public company landing page renders company details and open app call to action', function () {
     $parentCompany = ParentCompany::create(['name' => 'Landing Group']);
 
+    config()->set(
+        'deep_links.android_store_url',
+        'https://play.google.com/store/apps/details?id=com.safriat.safriat'
+    );
+
     $this->get('/companies/'.$parentCompany->id)
         ->assertOk()
         ->assertSeeText('Landing Group')
-        ->assertSeeText('Open In App');
+        ->assertSeeText('Open In App')
+        ->assertSeeText('Get The App')
+        ->assertSee($parentCompany->appDeepLinkUrl(), false)
+        ->assertSee(config('deep_links.android_store_url'), false)
+        ->assertSeeText('Other devices will stay on this page');
 });
 
 it('public company landing page returns 404 for invalid company id', function () {
