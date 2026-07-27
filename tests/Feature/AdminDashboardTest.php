@@ -1123,6 +1123,54 @@ it('admin can load flights page without filters', function () {
         ->assertSeeText('Office A');
 });
 
+it('admin flights page orders closest upcoming travel dates first', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-10',
+        'departure_time' => '2026-08-10 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-07-28',
+        'departure_time' => '2026-07-28 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-07-20',
+        'departure_time' => '2026-07-20 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $response = $this->actingAs($admin)->get('/admin/flights');
+
+    $response->assertOk();
+
+    $content = $response->getContent();
+    expect(strpos($content, '2026-07-28'))->toBeLessThan(strpos($content, '2026-08-10'));
+    expect(strpos($content, '2026-08-10'))->toBeLessThan(strpos($content, '2026-07-20'));
+});
+
 it('admin can filter flights by from state', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $office = User::factory()->create(['role' => 'office', 'name' => 'Office A']);

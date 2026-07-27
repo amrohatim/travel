@@ -7,6 +7,7 @@ use App\Models\Seat;
 use App\Models\State;
 use App\Models\User;
 use App\Services\FutureFlightService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,8 @@ class AdminFlightController extends Controller
 
     public function index(Request $request): View
     {
+        $today = Carbon::today(config('app.timezone'))->toDateString();
+
         $states = State::query()
             ->orderBy('name')
             ->get(['id', 'name']);
@@ -34,8 +37,11 @@ class AdminFlightController extends Controller
             ->when($request->filled('to'), fn ($query) => $query->where('to', $request->string('to')->toString()))
             ->when($request->filled('travel_date'), fn ($query) => $query->whereDate('travel_date', $request->string('travel_date')->toString()))
             ->when($request->filled('office_id'), fn ($query) => $query->where('office_id', (int) $request->input('office_id')))
-            ->orderByDesc('travel_date')
-            ->orderByDesc('departure_time')
+            ->orderByRaw('CASE WHEN travel_date >= ? THEN 0 ELSE 1 END', [$today])
+            ->orderByRaw('CASE WHEN travel_date >= ? THEN travel_date END ASC', [$today])
+            ->orderByRaw('CASE WHEN travel_date >= ? THEN departure_time END ASC', [$today])
+            ->orderByRaw('CASE WHEN travel_date < ? THEN travel_date END DESC', [$today])
+            ->orderByRaw('CASE WHEN travel_date < ? THEN departure_time END DESC', [$today])
             ->paginate(20)
             ->withQueryString();
 
