@@ -17,6 +17,7 @@ it('allows admin to access admin pages', function () {
 
     $this->actingAs($admin)->get('/admin/users')->assertOk();
     $this->actingAs($admin)->get('/admin/flights')->assertOk();
+    $this->actingAs($admin)->get('/admin/flights/future/create')->assertOk();
     $this->actingAs($admin)->get('/admin/fees')->assertOk();
     $this->actingAs($admin)->get('/admin/bookings')->assertOk();
     $this->actingAs($admin)->get('/admin/states')->assertOk();
@@ -29,6 +30,7 @@ it('blocks non admin users from admin pages', function () {
 
     $this->actingAs($traveler)->get('/admin/users')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/flights')->assertForbidden();
+    $this->actingAs($traveler)->get('/admin/flights/future/create')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/fees')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/bookings')->assertForbidden();
     $this->actingAs($traveler)->get('/admin/states')->assertForbidden();
@@ -524,6 +526,7 @@ it('admin pages render expected headings', function () {
     State::query()->create(['name' => 'Test State']);
 
     $this->actingAs($admin)->get('/admin/flights')->assertSeeText('Flights')->assertSeeText('Delete Selected')->assertSeeText('View Seats');
+    $this->actingAs($admin)->get('/admin/flights/future/create')->assertSeeText('Add Future Flights')->assertSeeText('Generate Future Flights');
     $this->actingAs($admin)->get('/admin/fees')->assertSeeText('Fees')->assertSeeText('Clear Fees');
     $this->actingAs($admin)->get('/admin/bookings')->assertSeeText('Bookings')->assertSeeText('Delete Selected')->assertSeeText('View Seats');
     $this->actingAs($admin)->get('/admin/states')->assertSeeText('States');
@@ -1093,6 +1096,125 @@ it('bulk delete endpoints validate ids', function () {
         ->post('/admin/bookings/bulk-delete', ['ids' => []])
         ->assertRedirect('/admin/bookings')
         ->assertSessionHasErrors(['ids']);
+});
+
+it('admin can create future flights for a selected office from the dashboard', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Future Admin']);
+
+    $response = $this->actingAs($admin)->post('/admin/flights/future', [
+        'office_id' => $office->id,
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'departure_time' => '2026-08-03 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'days_ahead' => 30,
+    ]);
+
+    $response->assertRedirect('/admin/flights/future/create');
+    $response->assertSessionHas('success');
+
+    $this->assertDatabaseHas('flights', [
+        'office_id' => $office->id,
+        'office_name' => 'Office Future Admin',
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-08-10',
+        'departure_time' => '2026-08-10 15:45:00',
+    ]);
+    $this->assertDatabaseHas('flights', [
+        'office_id' => $office->id,
+        'travel_date' => '2026-08-31',
+        'departure_time' => '2026-08-31 15:45:00',
+    ]);
+});
+
+it('admin future flight creation skips duplicates for the selected office', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Future Admin']);
+    $otherOffice = User::factory()->create(['role' => 'office', 'name' => 'Office Other']);
+
+    Flight::query()->create([
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-08-17',
+        'departure_time' => '2026-08-17 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    Flight::query()->create([
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'travel_date' => '2026-08-17',
+        'departure_time' => '2026-08-17 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'office_id' => $otherOffice->id,
+        'office_name' => $otherOffice->name,
+    ]);
+
+    $response = $this->actingAs($admin)->post('/admin/flights/future', [
+        'office_id' => $office->id,
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'departure_time' => '2026-08-03 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'days_ahead' => 30,
+    ]);
+
+    $response->assertRedirect('/admin/flights/future/create');
+    expect(session('success'))->toContain('Created: 3');
+    expect(session('success'))->toContain('Skipped: 1');
+    expect(session('success'))->toContain('2026-08-17');
+
+    $this->assertDatabaseHas('flights', [
+        'office_id' => $office->id,
+        'travel_date' => '2026-08-10',
+    ]);
+    $this->assertDatabaseHas('flights', [
+        'office_id' => $office->id,
+        'travel_date' => '2026-08-24',
+    ]);
+});
+
+it('admin future flight creation rejects non office targets', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $response = $this->actingAs($admin)
+        ->from('/admin/flights/future/create')
+        ->post('/admin/flights/future', [
+            'office_id' => $traveler->id,
+            'from' => 'Dubai',
+            'to' => 'Riyadh',
+            'departure_time' => '2026-08-03 15:45:00',
+            'price' => 300,
+            'seats' => 30,
+            'days_ahead' => 30,
+        ]);
+
+    $response->assertRedirect('/admin/flights/future/create');
+    $response->assertSessionHasErrors(['office_id']);
+});
+
+it('non admin users cannot submit admin future flight creation', function () {
+    $traveler = User::factory()->create(['role' => 'traveler']);
+    $office = User::factory()->create(['role' => 'office']);
+
+    $this->actingAs($traveler)->post('/admin/flights/future', [
+        'office_id' => $office->id,
+        'from' => 'Dubai',
+        'to' => 'Riyadh',
+        'departure_time' => '2026-08-03 15:45:00',
+        'price' => 300,
+        'seats' => 30,
+        'days_ahead' => 30,
+    ])->assertForbidden();
 });
 
 it('state create and image update still work', function () {

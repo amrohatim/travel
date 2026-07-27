@@ -48,6 +48,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/users/{user}/unsuspend', [AdminUserController::class, 'unsuspend'])->name('users.unsuspend');
 
     Route::get('/flights', [AdminFlightController::class, 'index'])->name('flights.index');
+    Route::get('/flights/future/create', [AdminFlightController::class, 'createFuture'])->name('flights.future.create');
+    Route::post('/flights/future', [AdminFlightController::class, 'storeFuture'])->name('flights.future.store');
     Route::get('/flights/{flight}/seats', [AdminFlightController::class, 'seats'])->name('flights.seats');
     Route::delete('/flights/{flight}', [AdminFlightController::class, 'destroy'])->name('flights.destroy');
     Route::post('/flights/bulk-delete', [AdminFlightController::class, 'bulkDestroy'])->name('flights.bulk-destroy');

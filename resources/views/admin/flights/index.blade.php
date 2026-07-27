@@ -1,7 +1,10 @@
 @extends('layouts.admin')
 
 @section('content')
-<h1 class="h4 mb-4">Flights</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">Flights</h1>
+    <a href="{{ route('admin.flights.future.create') }}" class="btn btn-mono">Add Future Flights</a>
+</div>
 
 <div class="panel">
     @if ($flights->count())

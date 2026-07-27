@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Flight;
 use App\Models\Seat;
+use App\Services\FutureFlightService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\Validator;
 
 class FlightController extends Controller
 {
+    public function __construct(
+        private readonly FutureFlightService $futureFlightService
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $flights = Flight::query()
@@ -82,64 +87,23 @@ class FlightController extends Controller
             ], 422);
         }
 
-        $baseDepartureTime = Carbon::parse($request->input('departure_time'));
-        $daysAhead = (int) $request->input('days_ahead');
-        $horizon = $baseDepartureTime->copy()->addDays($daysAhead);
-        $from = $request->string('from')->toString();
-        $to = $request->string('to')->toString();
-        $price = (int) $request->input('price');
-        $seats = (int) $request->input('seats');
-        $officeId = (int) $request->user()->id;
-        $officeName = $request->user()->name;
-
-        $createdFlights = [];
-        $createdDates = [];
-        $skippedDates = [];
-
-        for (
-            $candidate = $baseDepartureTime->copy()->addDays(7);
-            $candidate->lessThanOrEqualTo($horizon);
-            $candidate->addDays(7)
-        ) {
-            $candidateDate = $candidate->toDateString();
-            $candidateDateTime = $candidate->toDateTimeString();
-
-            $exists = Flight::query()
-                ->where('office_id', $officeId)
-                ->where('from', $from)
-                ->where('to', $to)
-                ->whereDate('travel_date', $candidateDate)
-                ->where('departure_time', $candidateDateTime)
-                ->exists();
-
-            if ($exists) {
-                $skippedDates[] = $candidateDate;
-                continue;
-            }
-
-            $flight = Flight::create([
-                'from' => $from,
-                'to' => $to,
-                'travel_date' => $candidateDate,
-                'departure_time' => $candidateDateTime,
-                'price' => $price,
-                'seats' => $seats,
-                'office_id' => $officeId,
-                'office_name' => $officeName,
-            ]);
-
-            $createdFlights[] = $flight;
-            $createdDates[] = $candidateDate;
-        }
+        $result = $this->futureFlightService->createWeeklyFlightsForOffice($request->user(), [
+            'from' => $request->string('from')->toString(),
+            'to' => $request->string('to')->toString(),
+            'departure_time' => $request->string('departure_time')->toString(),
+            'price' => (int) $request->input('price'),
+            'seats' => (int) $request->input('seats'),
+            'days_ahead' => (int) $request->input('days_ahead'),
+        ]);
 
         return response()->json([
             'message' => 'Future flights processed successfully',
             'data' => [
-                'created_dates' => $createdDates,
-                'skipped_dates' => $skippedDates,
-                'created_count' => count($createdDates),
-                'skipped_count' => count($skippedDates),
-                'flights' => collect($createdFlights)->map(
+                'created_dates' => $result['created_dates'],
+                'skipped_dates' => $result['skipped_dates'],
+                'created_count' => $result['created_count'],
+                'skipped_count' => $result['skipped_count'],
+                'flights' => collect($result['flights'])->map(
                     fn (Flight $flight) => $this->flightPayload($flight)
                 )->values(),
             ],
