@@ -50,6 +50,8 @@ class AdminFlightController extends Controller
 
     public function createFuture(Request $request): View
     {
+        $today = Carbon::today(config('app.timezone'))->toDateString();
+
         $offices = User::query()
             ->where('role', 'office')
             ->orderBy('name')
