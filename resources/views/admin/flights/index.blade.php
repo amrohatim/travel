@@ -69,13 +69,17 @@
                 </thead>
                 <tbody>
                     @foreach ($flights as $flight)
-                        <tr>
+                        @php
+                            $flightDate = \Carbon\Carbon::parse($flight->travel_date);
+                            $isToday = $flightDate->toDateString() === \Carbon\Carbon::today(config('app.timezone'))->toDateString();
+                        @endphp
+                        <tr @if ($isToday) style="background: #f97316; color: #ffffff;" @endif>
                             <td>
                                 <input type="checkbox" value="{{ $flight->id }}" class="flight-checkbox">
                             </td>
                             <td>{{ $flight->from }}</td>
                             <td>{{ $flight->to }}</td>
-                            <td>{{ $flight->travel_date }}</td>
+                            <td>{{ $flightDate->toDateString() }} ({{ $flightDate->format('l') }})</td>
                             <td>{{ $flight->departure_time ?: '—' }}</td>
                             <td>{{ $flight->price }}</td>
                             <td>{{ $flight->seats }}</td>

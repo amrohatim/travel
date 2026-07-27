@@ -1123,6 +1123,30 @@ it('admin can load flights page without filters', function () {
         ->assertSeeText('Office A');
 });
 
+it('admin flights page shows weekday name and highlights today flights', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-07-27',
+        'departure_time' => '2026-07-27 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights')
+        ->assertOk()
+        ->assertSeeText('2026-07-27 (Monday)')
+        ->assertSee('style="background: #f97316; color: #ffffff;"', false);
+});
+
 it('admin flights page orders closest upcoming travel dates first', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $office = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
@@ -1618,6 +1642,30 @@ it('admin future flights page shows empty state for selected office without flig
         ->assertOk()
         ->assertSeeText('Office Empty Flights')
         ->assertSeeText('No flights found for this office.');
+});
+
+it('admin future flights page shows weekday name and highlights today flights', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Alpha']);
+    State::query()->create(['name' => 'Khartoum']);
+    State::query()->create(['name' => 'Port Sudan']);
+
+    Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-07-27',
+        'departure_time' => '2026-07-27 08:00:00',
+        'price' => 100,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/flights/future/create?office_id='.$office->id)
+        ->assertOk()
+        ->assertSeeText('2026-07-27 (Monday)')
+        ->assertSee('style="background: #f97316; color: #ffffff;"', false);
 });
 
 it('state create and image update still work', function () {
