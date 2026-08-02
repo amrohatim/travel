@@ -137,7 +137,7 @@ class BookingController extends Controller
 
         $bookings = Booking::whereHas('flight', function ($query) use ($office): void {
             $query->where('office_id', $office->id);
-        })->with(['flight.officeUser.location', 'traveler'])->latest()->get();
+        })->with(['flight.officeUser.location', 'traveler', 'seats'])->latest()->get();
 
         return response()->json([
             'message' => 'Office bookings retrieved successfully',
