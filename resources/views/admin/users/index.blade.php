@@ -22,6 +22,7 @@
                         <th>Parent Company</th>
                         <th>State</th>
                         <th>Role</th>
+                        <th>Assignments</th>
                         <th>Status</th>
                         <th>Devices</th>
                         <th>Created</th>
@@ -52,6 +53,7 @@
                             <td>{{ $user->role === 'office' ? ($user->parentCompany?->name ?: '-') : '-' }}</td>
                             <td>{{ $user->role === 'office' ? ($user->state?->name ?: '-') : '-' }}</td>
                             <td>{{ $user->role }}</td>
+                            <td>{{ $user->role === 'support' ? $user->assignedOffices->count().' office(s)' : '-' }}</td>
                             <td>
                                 @if ($user->is_suspended)
                                     <div class="text-danger fw-semibold">Suspended</div>

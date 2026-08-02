@@ -18,7 +18,7 @@ class AdminUserController extends Controller
     public function index(): View
     {
         $users = User::query()
-            ->with(['parentCompany', 'state', 'devices' => function ($query): void {
+            ->with(['parentCompany', 'state', 'assignedOffices:id,name', 'devices' => function ($query): void {
                 $query->latest();
             }])
             ->orderByDesc('created_at')
@@ -35,8 +35,12 @@ class AdminUserController extends Controller
         $states = State::query()
             ->orderBy('name')
             ->get(['id', 'name']);
+        $offices = User::query()
+            ->where('role', 'office')
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        return view('admin.users.create', compact('parentCompanies', 'states'));
+        return view('admin.users.create', compact('parentCompanies', 'states', 'offices'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -50,12 +54,21 @@ class AdminUserController extends Controller
             'image' => ['nullable', 'image', 'max:2048'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
-            'role' => ['required', Rule::in(['admin', 'office', 'traveler'])],
+            'role' => ['required', Rule::in(['admin', 'office', 'traveler', 'support'])],
             'parent_company_id' => [
                 Rule::requiredIf(fn () => $request->input('role') === 'office'),
                 'nullable',
                 'integer',
                 'exists:parent_companies,id',
+            ],
+            'office_ids' => [
+                Rule::requiredIf(fn () => $request->input('role') === 'support'),
+                'array',
+            ],
+            'office_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'office')),
             ],
             'state_id' => [
                 'nullable',
@@ -73,18 +86,22 @@ class AdminUserController extends Controller
             $validated['parent_company_id'] = null;
             $validated['state_id'] = null;
         }
+        if (($validated['role'] ?? null) !== 'support') {
+            $validated['office_ids'] = [];
+        }
 
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('users', 'public');
         }
 
         $userAttributes = collect($validated)
-            ->except(['lat', 'lng'])
+            ->except(['lat', 'lng', 'office_ids'])
             ->all();
 
         /** @var User $user */
         $user = User::create($userAttributes);
         $this->syncOfficeLocation($user, $validated);
+        $this->syncSupportAssignments($user, $validated);
 
         return redirect()->route('admin.users.index')->with('success', 'User created successfully.');
     }
@@ -97,8 +114,12 @@ class AdminUserController extends Controller
         $states = State::query()
             ->orderBy('name')
             ->get(['id', 'name']);
+        $offices = User::query()
+            ->where('role', 'office')
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        return view('admin.users.edit', compact('user', 'parentCompanies', 'states'));
+        return view('admin.users.edit', compact('user', 'parentCompanies', 'states', 'offices'));
     }
 
     public function update(Request $request, User $user): RedirectResponse
@@ -112,12 +133,21 @@ class AdminUserController extends Controller
             'image' => ['nullable', 'image', 'max:2048'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
-            'role' => ['required', Rule::in(['admin', 'office', 'traveler'])],
+            'role' => ['required', Rule::in(['admin', 'office', 'traveler', 'support'])],
             'parent_company_id' => [
                 Rule::requiredIf(fn () => $request->input('role') === 'office'),
                 'nullable',
                 'integer',
                 'exists:parent_companies,id',
+            ],
+            'office_ids' => [
+                Rule::requiredIf(fn () => $request->input('role') === 'support'),
+                'array',
+            ],
+            'office_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', 'office')),
             ],
             'state_id' => [
                 'nullable',
@@ -134,6 +164,9 @@ class AdminUserController extends Controller
             $validated['parent_company_id'] = null;
             $validated['state_id'] = null;
         }
+        if (($validated['role'] ?? null) !== 'support') {
+            $validated['office_ids'] = [];
+        }
 
         if ($request->hasFile('image')) {
             if (! empty($user->image) && ! str_starts_with($user->image, 'http://') && ! str_starts_with($user->image, 'https://')) {
@@ -148,11 +181,12 @@ class AdminUserController extends Controller
         }
 
         $userAttributes = collect($validated)
-            ->except(['lat', 'lng'])
+            ->except(['lat', 'lng', 'office_ids'])
             ->all();
 
         $user->update($userAttributes);
         $this->syncOfficeLocation($user->fresh(), $validated, true);
+        $this->syncSupportAssignments($user->fresh(), $validated);
 
         return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
     }
@@ -259,5 +293,15 @@ class AdminUserController extends Controller
                 'lng' => (float) $validated['lng'],
             ],
         );
+    }
+
+    private function syncSupportAssignments(User $user, array $validated): void
+    {
+        if (($validated['role'] ?? null) !== 'support') {
+            $user->assignedOffices()->sync([]);
+            return;
+        }
+
+        $user->assignedOffices()->sync($validated['office_ids'] ?? []);
     }
 }

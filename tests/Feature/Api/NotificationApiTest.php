@@ -127,6 +127,66 @@ test('booking creation sends fcm notification to office devices', function () {
     });
 });
 
+test('booking creation also sends fcm notification to assigned support devices', function () {
+    configureFirebaseForTests();
+
+    Http::fake([
+        'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'oauth-token'], 200),
+        'https://fcm.googleapis.com/v1/projects/test-project/messages:send' => Http::response(['name' => 'projects/test/messages/1'], 200),
+    ]);
+
+    $office = User::factory()->create(['role' => 'office', 'name' => 'Office Push']);
+    $support = User::factory()->create(['role' => 'support', 'name' => 'Support Push']);
+    $support->assignedOffices()->sync([$office->id]);
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $flight = Flight::create([
+        'from' => 'Dubai',
+        'to' => 'Kuwait',
+        'travel_date' => '2026-12-10',
+        'departure_time' => '2026-12-10 10:00:00',
+        'price' => 300,
+        'seats' => 4,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    UserDeviceToken::create([
+        'user_id' => $office->id,
+        'fcm_token' => 'office-device-token',
+        'platform' => 'android',
+    ]);
+    UserDeviceToken::create([
+        'user_id' => $support->id,
+        'fcm_token' => 'support-device-token',
+        'platform' => 'android',
+    ]);
+
+    $this->withHeaders(notificationAuthHeaders($traveler))
+        ->post('/api/v1/flights/'.$flight->id.'/bookings', [
+            'seats_booked' => 1,
+            'passengers' => ['Traveler One'],
+            'image' => UploadedFile::fake()->image('receipt.jpg'),
+        ])
+        ->assertCreated();
+
+    Http::assertSentCount(3);
+    Http::assertSent(function ($request): bool {
+        if (! str_contains($request->url(), '/messages:send')) {
+            return false;
+        }
+
+        $data = $request->data();
+
+        return in_array(data_get($data, 'message.token'), [
+            'office-device-token',
+            'support-device-token',
+        ], true)
+            && data_get($data, 'message.data.office_id') === (string) $office->id
+            && data_get($data, 'message.data.office_name') === $office->name;
+    });
+});
+
 test('invalid fcm token is removed after booking notification send failure', function () {
     configureFirebaseForTests();
 

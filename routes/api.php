@@ -25,7 +25,7 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/notifications/token', [NotificationTokenController::class, 'store']);
         Route::delete('/notifications/token', [NotificationTokenController::class, 'destroy']);
 
-        Route::middleware('role:office')->group(function (): void {
+        Route::middleware('role:office,support')->group(function (): void {
             Route::get('/office/profile', [OfficeController::class, 'profile']);
             Route::post('/office/profile', [OfficeController::class, 'updateProfile']);
             Route::post('/office/password', [OfficeController::class, 'updatePassword']);

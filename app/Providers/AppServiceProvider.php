@@ -31,6 +31,9 @@ class AppServiceProvider extends ServiceProvider
         if ($role == 'office') {
             return '/office';
         }
+        if ($role == 'support') {
+            return '/support';
+        }
 
         return '/traveler';
     }

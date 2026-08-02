@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Flight;
 use App\Models\Seat;
+use App\Services\ActiveOfficeContext;
 use App\Services\FcmNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,10 @@ use Illuminate\Support\Str;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        private readonly ActiveOfficeContext $activeOfficeContext
+    ) {}
+
     public function store(Request $request, Flight $flight): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -128,8 +133,10 @@ class BookingController extends Controller
 
     public function officeBookings(Request $request): JsonResponse
     {
-        $bookings = Booking::whereHas('flight', function ($query) use ($request): void {
-            $query->where('office_id', $request->user()->id);
+        $office = $this->activeOfficeContext->resolve($request);
+
+        $bookings = Booking::whereHas('flight', function ($query) use ($office): void {
+            $query->where('office_id', $office->id);
         })->with(['flight.officeUser.location', 'traveler'])->latest()->get();
 
         return response()->json([
@@ -140,7 +147,7 @@ class BookingController extends Controller
 
     public function officeBookingsSummary(Request $request): JsonResponse
     {
-        $officeId = (int) $request->user()->id;
+        $officeId = (int) $this->activeOfficeContext->resolve($request)->id;
 
         $summary = Booking::query()
             ->where('office_id', $officeId)
@@ -160,6 +167,8 @@ class BookingController extends Controller
 
     public function updateStatus(Request $request, Booking $booking): JsonResponse
     {
+        $office = $this->activeOfficeContext->resolve($request);
+
         $validator = Validator::make($request->all(), [
             'status' => ['required', 'in:pending,confirmed,rejected'],
         ]);
@@ -175,7 +184,7 @@ class BookingController extends Controller
         $previousStatus = null;
 
         try {
-            $booking = DB::transaction(function () use ($booking, $newStatus, $request, &$previousStatus): Booking {
+            $booking = DB::transaction(function () use ($booking, $newStatus, $office, &$previousStatus): Booking {
                 $lockedBooking = Booking::query()
                     ->lockForUpdate()
                     ->firstWhere('id', $booking->id);
@@ -192,7 +201,7 @@ class BookingController extends Controller
                     abort(404);
                 }
 
-                if ((int) $lockedFlight->office_id !== (int) $request->user()->id) {
+                if ((int) $lockedFlight->office_id !== (int) $office->id) {
                     abort(response()->json([
                         'message' => 'Forbidden',
                     ], 403));

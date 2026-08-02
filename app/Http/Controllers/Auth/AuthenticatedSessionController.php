@@ -32,6 +32,7 @@ class AuthenticatedSessionController extends Controller
         $defaultRedirect = match ($user?->role) {
             'admin' => '/admin',
             'office' => '/office',
+            'support' => '/support',
             'traveler' => '/traveler',
             default => route('dashboard', absolute: false),
         };

@@ -133,6 +133,29 @@ it('admin can create a user', function () {
     ]);
 });
 
+it('admin can create a support user with office assignments', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
+    $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);
+
+    $response = $this->actingAs($admin)->post('/admin/users', [
+        'name' => 'Support User',
+        'email' => 'support@example.com',
+        'phone' => '12345670',
+        'role' => 'support',
+        'office_ids' => [$officeA->id, $officeB->id],
+        'password' => 'secret123',
+        'password_confirmation' => 'secret123',
+    ]);
+
+    $response->assertRedirect('/admin/users');
+
+    $support = User::query()->where('email', 'support@example.com')->firstOrFail();
+    expect($support->role)->toBe('support');
+    expect($support->assignedOffices()->pluck('users.id')->all())
+        ->toEqualCanonicalizing([$officeA->id, $officeB->id]);
+});
+
 it('admin create user validation catches invalid payload', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     User::factory()->create(['email' => 'dupe@example.com', 'phone' => '999', 'role' => 'traveler']);

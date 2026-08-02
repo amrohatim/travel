@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Flight;
 use App\Models\Seat;
+use App\Services\ActiveOfficeContext;
 use App\Services\FutureFlightService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -14,7 +15,8 @@ use Illuminate\Support\Facades\Validator;
 class FlightController extends Controller
 {
     public function __construct(
-        private readonly FutureFlightService $futureFlightService
+        private readonly FutureFlightService $futureFlightService,
+        private readonly ActiveOfficeContext $activeOfficeContext,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -35,6 +37,8 @@ class FlightController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $office = $this->activeOfficeContext->resolve($request);
+
         $validator = Validator::make($request->all(), [
             'from' => ['required', 'string', 'max:255'],
             'to' => ['required', 'string', 'max:255'],
@@ -59,8 +63,8 @@ class FlightController extends Controller
             'departure_time' => $departureTime->toDateTimeString(),
             'price' => (int) $request->input('price'),
             'seats' => (int) $request->input('seats'),
-            'office_id' => $request->user()->id,
-            'office_name' => $request->user()->name,
+            'office_id' => $office->id,
+            'office_name' => $office->name,
         ]);
 
         return response()->json([
@@ -71,6 +75,8 @@ class FlightController extends Controller
 
     public function storeFuture(Request $request): JsonResponse
     {
+        $office = $this->activeOfficeContext->resolve($request);
+
         $validator = Validator::make($request->all(), [
             'from' => ['required', 'string', 'max:255'],
             'to' => ['required', 'string', 'max:255'],
@@ -87,7 +93,7 @@ class FlightController extends Controller
             ], 422);
         }
 
-        $result = $this->futureFlightService->createWeeklyFlightsForOffice($request->user(), [
+        $result = $this->futureFlightService->createWeeklyFlightsForOffice($office, [
             'from' => $request->string('from')->toString(),
             'to' => $request->string('to')->toString(),
             'departure_time' => $request->string('departure_time')->toString(),
@@ -112,7 +118,9 @@ class FlightController extends Controller
 
     public function update(Request $request, Flight $flight): JsonResponse
     {
-        if ((int) $flight->office_id !== (int) $request->user()->id) {
+        $office = $this->activeOfficeContext->resolve($request);
+
+        if ((int) $flight->office_id !== (int) $office->id) {
             return response()->json([
                 'message' => 'Forbidden',
             ], 403);
@@ -179,13 +187,14 @@ class FlightController extends Controller
 
     public function officeToday(Request $request): JsonResponse
     {
+        $office = $this->activeOfficeContext->resolve($request);
         $queryDate = $request->query('date');
         $targetDate = $queryDate && strtotime($queryDate) !== false
             ? Carbon::parse($queryDate)->toDateString()
             : Carbon::today(config('app.timezone'))->toDateString();
 
         $flights = Flight::query()
-            ->where('office_id', $request->user()->id)
+            ->where('office_id', $office->id)
             ->whereDate('travel_date', $targetDate)
             ->orderBy('departure_time')
             ->get();
@@ -198,13 +207,14 @@ class FlightController extends Controller
 
     public function officeUpcoming(Request $request): JsonResponse
     {
+        $office = $this->activeOfficeContext->resolve($request);
         $queryDate = $request->query('date');
         $targetDate = $queryDate && strtotime($queryDate) !== false
             ? Carbon::parse($queryDate)->toDateString()
             : Carbon::today(config('app.timezone'))->toDateString();
 
         $flights = Flight::query()
-            ->where('office_id', $request->user()->id)
+            ->where('office_id', $office->id)
             ->whereDate('travel_date', '>', $targetDate)
             ->orderBy('departure_time')
             ->get();
@@ -217,13 +227,14 @@ class FlightController extends Controller
 
     public function officePrevious(Request $request): JsonResponse
     {
+        $office = $this->activeOfficeContext->resolve($request);
         $queryDate = $request->query('date');
         $targetDate = $queryDate && strtotime($queryDate) !== false
             ? Carbon::parse($queryDate)->toDateString()
             : Carbon::today(config('app.timezone'))->toDateString();
 
         $flights = Flight::query()
-            ->where('office_id', $request->user()->id)
+            ->where('office_id', $office->id)
             ->whereDate('travel_date', '<', $targetDate)
             ->orderByDesc('departure_time')
             ->get();
@@ -236,7 +247,9 @@ class FlightController extends Controller
 
     public function officePassengers(Request $request, Flight $flight): JsonResponse
     {
-        if ((int) $flight->office_id !== (int) $request->user()->id) {
+        $office = $this->activeOfficeContext->resolve($request);
+
+        if ((int) $flight->office_id !== (int) $office->id) {
             return response()->json([
                 'message' => 'Forbidden',
             ], 403);

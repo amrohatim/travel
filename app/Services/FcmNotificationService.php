@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\User;
 use App\Models\UserDeviceToken;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -11,8 +12,21 @@ class FcmNotificationService
 {
     public function sendNewBookingToOffice(Booking $booking): void
     {
-        $this->sendToUser(
-            userId: (int) $booking->office_id,
+        $office = User::query()
+            ->with('assignedSupports:id')
+            ->find((int) $booking->office_id);
+
+        if (! $office) {
+            return;
+        }
+
+        $this->sendToUsers(
+            userIds: $office->assignedSupports
+                ->pluck('id')
+                ->push($office->id)
+                ->unique()
+                ->map(fn ($id) => (int) $id)
+                ->all(),
             payload: [
                 'notification' => [
                     'title' => 'حجز جديد',
@@ -22,6 +36,8 @@ class FcmNotificationService
                     'type' => 'new_booking',
                     'booking_id' => (string) $booking->id,
                     'flight_id' => (string) $booking->flight_id,
+                    'office_id' => (string) $office->id,
+                    'office_name' => (string) $office->name,
                 ],
                 'android_notification' => [],
             ],
@@ -41,8 +57,8 @@ class FcmNotificationService
 
         $imageUrl = url('assets/confirm-ticket.png');
 
-        $this->sendToUser(
-            userId: (int) $booking->traveler_id,
+        $this->sendToUsers(
+            userIds: [(int) $booking->traveler_id],
             payload: [
                 'notification' => [
                     'title' => 'تم تاكيد الحجز',
@@ -196,13 +212,15 @@ class FcmNotificationService
         return false;
     }
 
-    private function sendToUser(int $userId, array $payload, array $logContext): void
+    private function sendToUsers(array $userIds, array $payload, array $logContext): void
     {
-        $token = UserDeviceToken::where('user_id', $userId)
-            ->latest('id')
-            ->value('fcm_token');
+        $userIds = collect($userIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
 
-        if (! $token) {
+        if ($userIds->isEmpty()) {
             return;
         }
 
@@ -218,38 +236,46 @@ class FcmNotificationService
             return;
         }
 
+        $tokens = UserDeviceToken::query()
+            ->whereIn('user_id', $userIds->all())
+            ->get(['user_id', 'fcm_token']);
+
         $url = 'https://fcm.googleapis.com/v1/projects/'.$projectId.'/messages:send';
-        $response = Http::withToken($accessToken)
-            ->acceptJson()
-            ->post($url, [
-                'message' => [
-                    'token' => $token,
-                    'notification' => $payload['notification'],
-                    'data' => $payload['data'],
-                    'android' => [
-                        'priority' => 'HIGH',
-                        'notification' => array_merge([
-                            'channel_id' => 'booking_alerts',
-                            'sound' => 'default',
-                            'default_vibrate_timings' => true,
-                            'notification_priority' => 'PRIORITY_MAX',
-                        ], $payload['android_notification']),
+
+        foreach ($tokens as $deviceToken) {
+            $response = Http::withToken($accessToken)
+                ->acceptJson()
+                ->post($url, [
+                    'message' => [
+                        'token' => $deviceToken->fcm_token,
+                        'notification' => $payload['notification'],
+                        'data' => $payload['data'],
+                        'android' => [
+                            'priority' => 'HIGH',
+                            'notification' => array_merge([
+                                'channel_id' => 'booking_alerts',
+                                'sound' => 'default',
+                                'default_vibrate_timings' => true,
+                                'notification_priority' => 'PRIORITY_MAX',
+                            ], $payload['android_notification']),
+                        ],
                     ],
-                ],
-            ]);
+                ]);
 
-        if ($response->successful()) {
-            return;
+            if ($response->successful()) {
+                continue;
+            }
+
+            if ($this->isInvalidTokenError($response->json())) {
+                UserDeviceToken::where('fcm_token', $deviceToken->fcm_token)->delete();
+                continue;
+            }
+
+            Log::warning('FCM send failed.', array_merge([
+                'status' => $response->status(),
+                'body' => $response->json(),
+                'recipient_user_id' => $deviceToken->user_id,
+            ], $logContext));
         }
-
-        if ($this->isInvalidTokenError($response->json())) {
-            UserDeviceToken::where('fcm_token', $token)->delete();
-            return;
-        }
-
-        Log::warning('FCM send failed.', array_merge([
-            'status' => $response->status(),
-            'body' => $response->json(),
-        ], $logContext));
     }
 }

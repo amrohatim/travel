@@ -90,6 +90,12 @@ Route::middleware(['auth', 'role:office'])->group(function () {
     Route::post('/bookings/{booking}/status', [BookingController::class, 'updateStatus']);
 });
 
+Route::middleware(['auth', 'role:support'])->group(function () {
+    Route::get('/support', function () {
+        return view('support.dashboard');
+    });
+});
+
 Route::middleware(['auth', 'role:traveler'])->group(function () {
     Route::get('/traveler', function () {
         return view('traveler.dashboard');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\ActiveOfficeContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -13,16 +14,25 @@ use Illuminate\Support\Facades\Validator;
 
 class OfficeController extends Controller
 {
-    public function index(): JsonResponse
+    public function __construct(
+        private readonly ActiveOfficeContext $activeOfficeContext
+    ) {}
+
+    public function index(Request $request): JsonResponse
     {
-        $offices = User::query()
+        $query = User::query()
             ->with(['parentCompany', 'location'])
             ->leftJoin('parent_companies', 'parent_companies.id', '=', 'users.parent_company_id')
             ->where('role', 'office')
             ->orderByRaw('CASE WHEN parent_companies.name IS NULL THEN 1 ELSE 0 END')
             ->orderBy('parent_companies.name')
-            ->orderBy('users.name')
-            ->get([
+            ->orderBy('users.name');
+
+        if ($request->user()?->role === 'support') {
+            $query->whereIn('users.id', $request->user()->assignedOffices()->select('users.id'));
+        }
+
+        $offices = $query->get([
                 'users.id',
                 'users.name',
                 'users.image',
@@ -49,8 +59,7 @@ class OfficeController extends Controller
 
     public function profile(Request $request): JsonResponse
     {
-        /** @var User $user */
-        $user = $request->user();
+        $user = $this->activeOfficeContext->resolve($request);
 
         return response()->json([
             'message' => 'Office profile retrieved successfully',
@@ -60,8 +69,7 @@ class OfficeController extends Controller
 
     public function updateProfile(Request $request): JsonResponse
     {
-        /** @var User $user */
-        $user = $request->user();
+        $user = $this->activeOfficeContext->resolve($request);
         $normalize = static function (mixed $value): mixed {
             if (! is_string($value)) {
                 return $value;
@@ -126,8 +134,7 @@ class OfficeController extends Controller
 
     public function updatePassword(Request $request): JsonResponse
     {
-        /** @var User $user */
-        $user = $request->user();
+        $user = $this->activeOfficeContext->resolve($request);
 
         $validator = Validator::make($request->all(), [
             'current_password' => ['required', 'string'],

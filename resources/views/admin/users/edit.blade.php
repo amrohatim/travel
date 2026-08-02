@@ -29,7 +29,7 @@
         <div class="col-md-6">
             <label class="form-label">Role</label>
             <select name="role" class="form-select" id="role-select" required>
-                @foreach (['admin', 'office', 'traveler'] as $role)
+                @foreach (['admin', 'office', 'traveler', 'support'] as $role)
                     <option value="{{ $role }}" @selected(old('role', $user->role) === $role)>{{ ucfirst($role) }}</option>
                 @endforeach
             </select>
@@ -63,6 +63,18 @@
         <div class="col-md-6" id="lng-field" @if (old('role', $user->role) !== 'office') style="display: none;" @endif>
             <label class="form-label">Longitude</label>
             <input type="number" step="any" name="lng" class="form-control" value="{{ old('lng', $user->location?->lng) }}">
+        </div>
+
+        <div class="col-12" id="support-offices-field" @if (old('role', $user->role) !== 'support') style="display: none;" @endif>
+            <label class="form-label">Assigned Offices</label>
+            @php
+                $selectedOfficeIds = collect(old('office_ids', $user->assignedOffices->pluck('id')->all()));
+            @endphp
+            <select name="office_ids[]" class="form-select" id="support-offices-select" multiple size="8">
+                @foreach ($offices as $office)
+                    <option value="{{ $office->id }}" @selected($selectedOfficeIds->contains((string) $office->id) || $selectedOfficeIds->contains($office->id))>{{ $office->name }}</option>
+                @endforeach
+            </select>
         </div>
 
         <div class="col-md-6">
@@ -110,20 +122,31 @@
         const stateSelect = document.getElementById('state-select');
         const latField = document.getElementById('lat-field');
         const lngField = document.getElementById('lng-field');
+        const supportOfficesField = document.getElementById('support-offices-field');
+        const supportOfficesSelect = document.getElementById('support-offices-select');
 
         const syncParentCompanyField = () => {
             const isOffice = roleSelect.value === 'office';
+            const isSupport = roleSelect.value === 'support';
             parentCompanyField.style.display = isOffice ? '' : 'none';
             stateField.style.display = isOffice ? '' : 'none';
             latField.style.display = isOffice ? '' : 'none';
             lngField.style.display = isOffice ? '' : 'none';
+            supportOfficesField.style.display = isSupport ? '' : 'none';
             parentCompanySelect.required = isOffice;
+            supportOfficesSelect.required = isSupport;
 
             if (!isOffice) {
                 parentCompanySelect.value = '';
                 stateSelect.value = '';
                 latField.querySelector('input').value = '';
                 lngField.querySelector('input').value = '';
+            }
+
+            if (!isSupport) {
+                Array.from(supportOfficesSelect.options).forEach((option) => {
+                    option.selected = false;
+                });
             }
         };
 

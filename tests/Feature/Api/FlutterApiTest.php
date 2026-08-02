@@ -144,6 +144,21 @@ test('office and admin can login using phone', function () {
         ->assertJsonPath('data.user.role', 'admin');
 });
 
+test('support can login using phone', function () {
+    $support = User::factory()->create([
+        'role' => 'support',
+        'phone' => '0999999997',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $support->phone,
+        'password' => 'password123',
+        'device_id' => 'device-support-login',
+    ])->assertOk()
+        ->assertJsonPath('data.user.role', 'support');
+});
+
 test('login requires device id', function () {
     $user = User::factory()->create([
         'phone' => '0999999900',
@@ -289,6 +304,20 @@ test('it lists offices with bankak fields', function () {
         ->assertJsonPath('data.1.parent_company_name', 'Zeta Group');
 });
 
+test('support sees only assigned offices', function () {
+    $officeA = User::factory()->create(['name' => 'Office One', 'role' => 'office']);
+    $officeB = User::factory()->create(['name' => 'Office Two', 'role' => 'office']);
+    $support = User::factory()->create(['role' => 'support']);
+    $support->assignedOffices()->sync([$officeB->id]);
+
+    $response = $this->withHeaders(tokenHeaders($support))
+        ->getJson('/api/v1/offices');
+
+    $response->assertOk();
+    expect($response->json('data'))->toHaveCount(1);
+    expect($response->json('data.0.id'))->toBe($officeB->id);
+});
+
 test('it lists home messages publicly in latest-first order', function () {
     HomeMessage::create([
         'title' => 'Older Message',
@@ -376,6 +405,28 @@ test('office can view and update own profile', function () {
         'bankak_name' => 'New Bankak',
         'bankak_number' => 444444,
     ]);
+});
+
+test('support can view assigned office profile and is forbidden without office header', function () {
+    $office = User::factory()->create([
+        'role' => 'office',
+        'name' => 'Office Profile',
+        'phone' => '0911111114',
+    ]);
+    $support = User::factory()->create(['role' => 'support']);
+    $support->assignedOffices()->sync([$office->id]);
+
+    $this->withHeaders(array_merge(tokenHeaders($support), [
+        'X-Office-ID' => (string) $office->id,
+    ]))
+        ->getJson('/api/v1/office/profile')
+        ->assertOk()
+        ->assertJsonPath('data.id', $office->id)
+        ->assertJsonPath('data.name', 'Office Profile');
+
+    $this->withHeaders(tokenHeaders($support))
+        ->getJson('/api/v1/office/profile')
+        ->assertForbidden();
 });
 
 test('office can change password and login with the new password', function () {
