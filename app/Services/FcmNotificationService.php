@@ -20,13 +20,14 @@ class FcmNotificationService
             return;
         }
 
+        $supportUserIds = $office->assignedSupports
+            ->pluck('id')
+            ->unique()
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         $this->sendToUsers(
-            userIds: $office->assignedSupports
-                ->pluck('id')
-                ->push($office->id)
-                ->unique()
-                ->map(fn ($id) => (int) $id)
-                ->all(),
+            userIds: [$office->id],
             payload: [
                 'notification' => [
                     'title' => 'حجز جديد',
@@ -46,6 +47,30 @@ class FcmNotificationService
                 'office_id' => $booking->office_id,
             ],
         );
+
+        if ($supportUserIds !== []) {
+            $this->sendToUsers(
+                userIds: $supportUserIds,
+                payload: [
+                    'notification' => [
+                        'title' => 'حجز جديد',
+                        'body' => 'يوجد طلب حجز جديد يحتاج للمراجعة - '.$office->name,
+                    ],
+                    'data' => [
+                        'type' => 'new_booking',
+                        'booking_id' => (string) $booking->id,
+                        'flight_id' => (string) $booking->flight_id,
+                        'office_id' => (string) $office->id,
+                        'office_name' => (string) $office->name,
+                    ],
+                    'android_notification' => [],
+                ],
+                logContext: [
+                    'booking_id' => $booking->id,
+                    'office_id' => $booking->office_id,
+                ],
+            );
+        }
     }
 
     public function sendBookingConfirmedToTraveler(Booking $booking): void
