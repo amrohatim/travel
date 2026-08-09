@@ -71,7 +71,7 @@ class BookingController extends Controller
                     'office_id' => $lockedFlight->office_id,
                     'traveler_id' => $request->user()->id,
                     'seats_booked' => $requestedSeats,
-                    'total' => $requestedSeats * $lockedFlight->price,
+                    'total' => $requestedSeats * $lockedFlight->finalPrice(),
                     'image' => $imagePath,
                     'status' => 'pending',
                 ]);
@@ -283,6 +283,11 @@ class BookingController extends Controller
                 'departure_time' => $booking->flight->departure_time
                     ? Carbon::parse($booking->flight->departure_time)->toIso8601String()
                     : null,
+                'price' => $booking->flight->price,
+                'has_discount' => $booking->flight->normalizedDiscount()['has_discount'],
+                'discount_percentage' => $booking->flight->normalizedDiscount()['discount_percentage'],
+                'discount_value' => $booking->flight->normalizedDiscount()['discount_value'],
+                'final_price' => $booking->flight->normalizedDiscount()['final_price'],
                 'office_id' => $booking->flight->office_id,
                 'office_name' => $booking->flight->office_name,
                 'location' => $location

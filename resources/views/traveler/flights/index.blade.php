@@ -18,28 +18,34 @@
 
 <div class="row" dir="rtl">
 @foreach($flights as $flight)
+    @php($discount = $flight->normalizedDiscount())
     <div class="col-md-4">
         <div class="card mb-3 shadow">
             <div class="card-body">
-                <h1><p><strong>المكتب المسؤول:</strong> {{ $flight->office_name }}</p>
-</h1>
+                <h1><p><strong>المكتب المسؤول:</strong> {{ $flight->office_name }}</p></h1>
                 <h5>{{ $flight->from }} → {{ $flight->to }}</h5>
                 <p class="text-muted">
                     التاريخ: {{ $flight->travel_date }} <br>
-                    السعر: {{ $flight->price }} <br>
+                    السعر الأصلي: {{ $flight->price }} <br>
+                    @if($discount['has_discount'])
+                        الخصم: {{ $discount['discount_percentage'] }}% ({{ $discount['discount_value'] }}) <br>
+                        السعر بعد الخصم: {{ $discount['final_price'] }} <br>
+                    @else
+                        السعر النهائي: {{ $flight->price }} <br>
+                    @endif
                     المقاعد: {{ $flight->seats }}
                 </p>
 
                 @if($flight->seats > 0)
                     <form method="POST" action="/flights/{{ $flight->id }}/book">
                         @csrf
-                        
+
                         <input type="number" name="seats_booked" min="1" max="{{ $flight->seats }}" class="form-control mb-2" placeholder="عدد المقاعد">
-                             @if($flight->office_name == 'Alaziziah')
-                                        <button class="btn btn-danger w-100">احجز الآن</button>
-                                        @else
-                                        <button class="btn btn-success w-100">احجز الآن</button>
-                                    @endif
+                        @if($flight->office_name == 'Alaziziah')
+                            <button class="btn btn-danger w-100">احجز الآن</button>
+                        @else
+                            <button class="btn btn-success w-100">احجز الآن</button>
+                        @endif
                     </form>
                 @else
                     <span class="badge bg-danger">مكتملة</span>

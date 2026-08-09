@@ -116,13 +116,19 @@
                                 @php
                                     $flightDate = \Carbon\Carbon::parse($flight->travel_date);
                                     $isToday = $flightDate->toDateString() === \Carbon\Carbon::today(config('app.timezone'))->toDateString();
+                                    $discount = $flight->normalizedDiscount();
                                 @endphp
                                 <tr @if ($isToday) style="background: #f97316; color: #ffffff;" @endif>
                                     <td>{{ $flight->from }}</td>
                                     <td>{{ $flight->to }}</td>
                                     <td>{{ $flightDate->toDateString() }} ({{ $flightDate->format('l') }})</td>
                                     <td>{{ $flight->departure_time ?: '—' }}</td>
-                                    <td>{{ $flight->price }}</td>
+                                    <td>
+                                        {{ $flight->price }}
+                                        @if ($discount['has_discount'])
+                                            <div class="small">Final: {{ $discount['final_price'] }}</div>
+                                        @endif
+                                    </td>
                                     <td>{{ $flight->seats }}</td>
                                 </tr>
                             @endforeach

@@ -48,6 +48,34 @@ class AdminFlightController extends Controller
         return view('admin.flights.index', compact('flights', 'states', 'offices'));
     }
 
+    public function create(): View
+    {
+        [$offices, $states] = $this->flightFormData();
+
+        return view('admin.flights.create', compact('offices', 'states'));
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $this->validateAdminFlight($request);
+        $office = $this->findOfficeOrFail((int) $validated['office_id']);
+        $departureTime = Carbon::parse($validated['departure_time']);
+
+        Flight::query()->create([
+            'from' => $validated['from'],
+            'to' => $validated['to'],
+            'travel_date' => $departureTime->toDateString(),
+            'departure_time' => $departureTime->toDateTimeString(),
+            'price' => (int) $validated['price'],
+            'seats' => (int) $validated['seats'],
+            'office_id' => $office->id,
+            'office_name' => $office->name,
+            ...$this->discountAttributesFromValidated($validated),
+        ]);
+
+        return redirect()->route('admin.flights.index')->with('success', 'Flight created successfully.');
+    }
+
     public function createFuture(Request $request): View
     {
         $today = Carbon::today(config('app.timezone'))->toDateString();
@@ -86,6 +114,60 @@ class AdminFlightController extends Controller
         }
 
         return view('admin.flights.create-future', compact('offices', 'states', 'selectedOffice', 'officeFlights'));
+    }
+
+    public function edit(Flight $flight): View
+    {
+        [$offices, $states] = $this->flightFormData();
+        $hasBookings = $flight->bookings()->exists();
+
+        return view('admin.flights.edit', compact('flight', 'offices', 'states', 'hasBookings'));
+    }
+
+    public function update(Request $request, Flight $flight): RedirectResponse
+    {
+        $validated = $this->validateAdminFlight($request);
+        $office = $this->findOfficeOrFail((int) $validated['office_id']);
+        $departureTime = Carbon::parse($validated['departure_time']);
+        $hasBookings = $flight->bookings()->exists();
+
+        if ($hasBookings) {
+            $hasProtectedChanges = $flight->from !== $validated['from']
+                || $flight->to !== $validated['to']
+                || (int) $flight->seats !== (int) $validated['seats']
+                || (int) $flight->office_id !== (int) $office->id
+                || Carbon::parse($flight->departure_time)->notEqualTo($departureTime);
+
+            if ($hasProtectedChanges) {
+                return back()
+                    ->withErrors([
+                        'flight' => 'Only price and discount can be edited when bookings exist.',
+                    ])
+                    ->withInput();
+            }
+        }
+
+        $payload = [
+            'price' => (int) $validated['price'],
+            'office_name' => $office->name,
+            ...$this->discountAttributesFromValidated($validated),
+        ];
+
+        if (! $hasBookings) {
+            $payload = [
+                ...$payload,
+                'from' => $validated['from'],
+                'to' => $validated['to'],
+                'travel_date' => $departureTime->toDateString(),
+                'departure_time' => $departureTime->toDateTimeString(),
+                'seats' => (int) $validated['seats'],
+                'office_id' => $office->id,
+            ];
+        }
+
+        $flight->update($payload);
+
+        return redirect()->route('admin.flights.index')->with('success', 'Flight updated successfully.');
     }
 
     public function storeFuture(Request $request): RedirectResponse
@@ -192,5 +274,95 @@ class AdminFlightController extends Controller
     private function formatDatesForFlash(array $dates): string
     {
         return $dates === [] ? 'none' : implode(', ', $dates);
+    }
+
+    private function validateAdminFlight(Request $request): array
+    {
+        $validated = $request->validate([
+            'office_id' => ['required', 'integer', 'exists:users,id'],
+            'from' => ['required', 'string', 'max:255'],
+            'to' => ['required', 'string', 'max:255'],
+            'departure_time' => ['required', 'date'],
+            'price' => ['required', 'integer', 'min:0'],
+            'seats' => ['required', 'integer', 'min:1'],
+            'has_discount' => ['nullable', 'boolean'],
+            'discount_percentage' => ['nullable', 'integer', 'min:0', 'max:100'],
+        ]);
+
+        $validated['has_discount'] = $request->boolean('has_discount');
+
+        if ($validated['has_discount'] && ! array_key_exists('discount_percentage', $validated)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'discount_percentage' => ['The discount percentage field is required when discount is enabled.'],
+            ]);
+        }
+
+        if ($validated['has_discount'] && (int) ($validated['discount_percentage'] ?? 0) <= 0) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'discount_percentage' => ['The discount percentage must be greater than 0 when discount is enabled.'],
+            ]);
+        }
+
+        $discountValue = $validated['has_discount']
+            ? (int) floor(((int) $validated['price'] * (int) $validated['discount_percentage']) / 100)
+            : null;
+
+        if ($discountValue !== null && $discountValue >= (int) $validated['price']) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'discount_percentage' => ['The discount must be less than the base price.'],
+            ]);
+        }
+
+        return $validated;
+    }
+
+    private function discountAttributesFromValidated(array $validated): array
+    {
+        if (! $validated['has_discount']) {
+            return [
+                'has_discount' => false,
+                'discount_percentage' => null,
+                'discount_value' => null,
+            ];
+        }
+
+        $discountPercentage = (int) $validated['discount_percentage'];
+        $discountValue = (int) floor(((int) $validated['price'] * $discountPercentage) / 100);
+
+        return [
+            'has_discount' => true,
+            'discount_percentage' => $discountPercentage,
+            'discount_value' => $discountValue,
+        ];
+    }
+
+    private function findOfficeOrFail(int $officeId): User
+    {
+        $office = User::query()
+            ->where('id', $officeId)
+            ->where('role', 'office')
+            ->first();
+
+        if (! $office) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'office_id' => ['The selected office is invalid.'],
+            ]);
+        }
+
+        return $office;
+    }
+
+    private function flightFormData(): array
+    {
+        $offices = User::query()
+            ->where('role', 'office')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $states = State::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return [$offices, $states];
     }
 }

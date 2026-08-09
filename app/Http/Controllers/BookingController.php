@@ -20,7 +20,7 @@ class BookingController extends Controller
             'office_id' => $flight->office_id,
             'traveler_id' => auth()->id(),
             'seats_booked' => $request->seats_booked,
-            'total' => $request->seats_booked * $flight->price,
+            'total' => $request->seats_booked * $flight->finalPrice(),
             'status' => 'pending',
         ]);
 

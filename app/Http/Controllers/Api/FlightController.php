@@ -292,6 +292,10 @@ class FlightController extends Controller
                 ? Carbon::parse($flight->departure_time)->toIso8601String()
                 : null,
             'price' => $flight->price,
+            'has_discount' => $flight->normalizedDiscount()['has_discount'],
+            'discount_percentage' => $flight->normalizedDiscount()['discount_percentage'],
+            'discount_value' => $flight->normalizedDiscount()['discount_value'],
+            'final_price' => $flight->normalizedDiscount()['final_price'],
             'seats' => $flight->seats,
             'office_id' => $flight->office_id,
             'office_name' => $flight->office_name,

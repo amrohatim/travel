@@ -3,7 +3,10 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h4 mb-0">Flights</h1>
-    <a href="{{ route('admin.flights.future.create') }}" class="btn btn-mono">Add Future Flights</a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('admin.flights.create') }}" class="btn btn-mono">Add Flight</a>
+        <a href="{{ route('admin.flights.future.create') }}" class="btn btn-outline-mono">Add Future Flights</a>
+    </div>
 </div>
 
 <div class="panel">
@@ -62,6 +65,8 @@
                         <th>Travel Date</th>
                         <th>Departure</th>
                         <th>Price</th>
+                        <th>Final Price</th>
+                        <th>Discount</th>
                         <th>Seats</th>
                         <th>Office</th>
                         <th class="text-end">Action</th>
@@ -72,6 +77,7 @@
                         @php
                             $flightDate = \Carbon\Carbon::parse($flight->travel_date);
                             $isToday = $flightDate->toDateString() === \Carbon\Carbon::today(config('app.timezone'))->toDateString();
+                            $discount = $flight->normalizedDiscount();
                         @endphp
                         <tr @if ($isToday) style="background: #f97316; color: #ffffff;" @endif>
                             <td>
@@ -82,9 +88,18 @@
                             <td>{{ $flightDate->toDateString() }} ({{ $flightDate->format('l') }})</td>
                             <td>{{ $flight->departure_time ?: '—' }}</td>
                             <td>{{ $flight->price }}</td>
+                            <td>{{ $discount['final_price'] }}</td>
+                            <td>
+                                @if ($discount['has_discount'])
+                                    {{ $discount['discount_percentage'] }}% ({{ $discount['discount_value'] }})
+                                @else
+                                    No
+                                @endif
+                            </td>
                             <td>{{ $flight->seats }}</td>
                             <td>{{ $flight->office_name ?: '—' }}</td>
                             <td class="text-end">
+                                <a href="{{ route('admin.flights.edit', $flight) }}" class="btn btn-sm btn-outline-mono">Edit</a>
                                 <a href="{{ route('admin.flights.seats', $flight) }}" class="btn btn-sm btn-outline-mono">View Seats</a>
                                 <form method="POST" action="{{ route('admin.flights.destroy', $flight) }}" class="d-inline" onsubmit="return confirm('Delete this flight and all related bookings/seats?');">
                                     @csrf
