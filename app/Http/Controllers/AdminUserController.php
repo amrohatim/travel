@@ -134,6 +134,7 @@ class AdminUserController extends Controller
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
             'role' => ['required', Rule::in(['admin', 'office', 'traveler', 'support'])],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'parent_company_id' => [
                 Rule::requiredIf(fn () => $request->input('role') === 'office'),
                 'nullable',
@@ -159,6 +160,10 @@ class AdminUserController extends Controller
         $this->validateOfficeLocationPair($validator, $request);
 
         $validated = $validator->validate();
+
+        if (blank($validated['password'] ?? null)) {
+            unset($validated['password']);
+        }
 
         if (($validated['role'] ?? null) !== 'office') {
             $validated['parent_company_id'] = null;

@@ -107,6 +107,17 @@
             @endif
         </div>
 
+        <div class="col-md-6">
+            <label class="form-label">New Password</label>
+            <input type="password" name="password" class="form-control" autocomplete="new-password">
+            <div class="form-text">Leave blank to keep the current password.</div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Confirm New Password</label>
+            <input type="password" name="password_confirmation" class="form-control" autocomplete="new-password">
+        </div>
+
         <div class="col-12">
             <button type="submit" class="btn btn-mono">Update User</button>
         </div>

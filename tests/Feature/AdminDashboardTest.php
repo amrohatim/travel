@@ -10,6 +10,7 @@ use App\Models\Seat;
 use App\Models\State;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
 it('allows admin to access admin pages', function () {
@@ -243,6 +244,28 @@ it('admin can update a user', function () {
         'lat' => '14.1000000',
         'lng' => '33.2000000',
     ]);
+});
+
+it('admin can update a user password', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $user = User::factory()->create([
+        'role' => 'traveler',
+        'phone' => '4450',
+        'password' => 'old-password',
+    ]);
+
+    $response = $this->actingAs($admin)->put('/admin/users/'.$user->id, [
+        'name' => $user->name,
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'role' => $user->role,
+        'password' => 'new-secret123',
+        'password_confirmation' => 'new-secret123',
+    ]);
+
+    $response->assertRedirect('/admin/users');
+
+    expect(Hash::check('new-secret123', $user->fresh()->password))->toBeTrue();
 });
 
 it('admin create office validation requires both location coordinates together', function () {
