@@ -112,7 +112,7 @@
         <div class="actions">
             <a class="btn btn-primary" href="{{ $appDeepLinkUrl }}">Open In App</a>
             <a class="btn" href="{{ $androidStoreUrl }}">Get The App</a>
-            <a class="btn" href="{{ url('/') }}">Visit Website</a>
+            {{-- <a class="btn" href="{{ url('/') }}">Visit Website</a> --}}
         </div>
 
         <p class="hint">If the app does not open automatically on Android, Google Play will open shortly. Other devices will stay on this page, where you can use "Open In App" manually.</p>
