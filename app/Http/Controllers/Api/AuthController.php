@@ -81,7 +81,7 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => [
-                    'phone' => ['The provided credentials are incorrect.'],
+                    'phone' => ['بيانات الدخول غير صحيحة.'],
                 ],
             ], 422);
         }
@@ -132,7 +132,7 @@ class AuthController extends Controller
 
         $validator->after(function ($validator) use ($request, $user): void {
             if (! $user || ! Hash::check($request->string('current_password')->toString(), $user->password)) {
-                $validator->errors()->add('current_password', 'The current password is incorrect.');
+                $validator->errors()->add('current_password', 'كلمة المرورة الحالية خاطئة');
             }
         });
 
