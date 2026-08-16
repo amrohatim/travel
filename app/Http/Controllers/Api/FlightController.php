@@ -21,8 +21,17 @@ class FlightController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $today = Carbon::today(config('app.timezone'))->toDateString();
+        $endDate = Carbon::today(config('app.timezone'))->addDays(7)->toDateString();
+
         $flights = Flight::query()
-            ->when($request->filled('date'), fn ($query) => $query->whereDate('travel_date', $request->query('date')))
+            ->when(
+                $request->filled('date'),
+                fn ($query) => $query->whereDate('travel_date', $request->query('date')),
+                fn ($query) => $query
+                    ->whereDate('travel_date', '>=', $today)
+                    ->whereDate('travel_date', '<=', $endDate)
+            )
             ->when($request->filled('from'), fn ($query) => $query->where('from', 'like', '%'.$request->query('from').'%'))
             ->when($request->filled('to'), fn ($query) => $query->where('to', 'like', '%'.$request->query('to').'%'))
             ->when($request->filled('office_id'), fn ($query) => $query->where('office_id', (int) $request->query('office_id')))

@@ -4,6 +4,7 @@ use App\Models\Booking;
 use App\Models\Flight;
 use App\Models\State;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 
 function discountTokenHeaders(User $user): array
@@ -235,4 +236,60 @@ it('admin flights list and traveler flights page show discount details', functio
         ->assertOk()
         ->assertSeeText('10%')
         ->assertSeeText('450');
+});
+
+it('traveler flights page defaults to today through 7 days ahead and still supports explicit date search', function () {
+    Carbon::setTestNow('2026-08-16 09:00:00');
+
+    try {
+        $office = User::factory()->create(['role' => 'office', 'name' => 'Office Traveler Window']);
+        $traveler = User::factory()->create(['role' => 'traveler']);
+
+        Flight::query()->create([
+            'from' => 'Khartoum',
+            'to' => 'Madani',
+            'travel_date' => '2026-08-16',
+            'departure_time' => '2026-08-16 08:00:00',
+            'price' => 100,
+            'seats' => 20,
+            'office_id' => $office->id,
+            'office_name' => $office->name,
+        ]);
+
+        Flight::query()->create([
+            'from' => 'Khartoum',
+            'to' => 'Atbara',
+            'travel_date' => '2026-08-23',
+            'departure_time' => '2026-08-23 08:00:00',
+            'price' => 120,
+            'seats' => 20,
+            'office_id' => $office->id,
+            'office_name' => $office->name,
+        ]);
+
+        Flight::query()->create([
+            'from' => 'Khartoum',
+            'to' => 'Dongola',
+            'travel_date' => '2026-08-24',
+            'departure_time' => '2026-08-24 08:00:00',
+            'price' => 140,
+            'seats' => 20,
+            'office_id' => $office->id,
+            'office_name' => $office->name,
+        ]);
+
+        $this->actingAs($traveler)
+            ->get('/flights')
+            ->assertOk()
+            ->assertSeeText('Madani')
+            ->assertSeeText('Atbara')
+            ->assertDontSeeText('Dongola');
+
+        $this->actingAs($traveler)
+            ->get('/flights?date=2026-08-24')
+            ->assertOk()
+            ->assertSeeText('Dongola');
+    } finally {
+        Carbon::setTestNow();
+    }
 });

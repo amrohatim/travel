@@ -123,6 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    'FLUTTER_APP_VERSION'=>env('FLUTTER_APP_VERSION'),
+    'flutter_app_version' => env('FLUTTER_APP_VERSION'),
 
 ];

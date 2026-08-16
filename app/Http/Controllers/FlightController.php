@@ -14,10 +14,16 @@ class FlightController extends Controller
      */
 public function index(Request $request)
 {
+    $today = Carbon::today(config('app.timezone'))->toDateString();
+    $endDate = Carbon::today(config('app.timezone'))->addDays(7)->toDateString();
+
     if ($request->date) {
-        $flights = Flight::where('travel_date', $request->date)->get();
+        $flights = Flight::whereDate('travel_date', $request->date)->get();
     } else {
-        $flights = Flight::all();
+        $flights = Flight::query()
+            ->whereDate('travel_date', '>=', $today)
+            ->whereDate('travel_date', '<=', $endDate)
+            ->get();
     }
 
     return view('traveler.flights.index', compact('flights'));

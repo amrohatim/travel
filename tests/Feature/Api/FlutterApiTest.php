@@ -8,6 +8,7 @@ use App\Models\OfficeLocation;
 use App\Models\ParentCompany;
 use App\Models\Seat;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -250,6 +251,18 @@ test('authenticated endpoint rejects suspended device', function () {
 test('it requires authentication for protected endpoints', function () {
     $this->postJson('/api/v1/auth/logout')
         ->assertUnauthorized();
+});
+
+test('app version endpoint returns configured version with no-cache headers', function () {
+    config(['app.flutter_app_version' => '2.5.0']);
+
+    $response = $this->getJson('/api/v1/getAppVersion');
+
+    $response->assertOk()
+        ->assertJsonPath('version', '2.5.0')
+        ->assertHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->assertHeader('Pragma', 'no-cache')
+        ->assertHeader('Expires', '0');
 });
 
 test('it lists offices with bankak fields', function () {
@@ -536,6 +549,69 @@ test('it lists flights and supports filtering', function () {
 
     expect($response->json('data'))->toHaveCount(1);
     expect($response->json('data.0.from'))->toBe('Dubai');
+});
+
+test('it lists only traveler flights from today through 7 days ahead by default', function () {
+    Carbon::setTestNow('2026-08-16 09:00:00');
+
+    try {
+        $office = User::factory()->create(['role' => 'office', 'name' => 'Office Window']);
+
+        Flight::create([
+            'from' => 'Khartoum',
+            'to' => 'Madani',
+            'travel_date' => '2026-08-15',
+            'departure_time' => '2026-08-15 08:00:00',
+            'price' => 200,
+            'seats' => 20,
+            'office_id' => $office->id,
+            'office_name' => $office->name,
+        ]);
+
+        Flight::create([
+            'from' => 'Khartoum',
+            'to' => 'Port Sudan',
+            'travel_date' => '2026-08-16',
+            'departure_time' => '2026-08-16 09:00:00',
+            'price' => 250,
+            'seats' => 20,
+            'office_id' => $office->id,
+            'office_name' => $office->name,
+        ]);
+
+        Flight::create([
+            'from' => 'Khartoum',
+            'to' => 'Atbara',
+            'travel_date' => '2026-08-23',
+            'departure_time' => '2026-08-23 10:00:00',
+            'price' => 300,
+            'seats' => 20,
+            'office_id' => $office->id,
+            'office_name' => $office->name,
+        ]);
+
+        Flight::create([
+            'from' => 'Khartoum',
+            'to' => 'Dongola',
+            'travel_date' => '2026-08-24',
+            'departure_time' => '2026-08-24 11:00:00',
+            'price' => 350,
+            'seats' => 20,
+            'office_id' => $office->id,
+            'office_name' => $office->name,
+        ]);
+
+        $response = $this->getJson('/api/v1/flights');
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Flights retrieved successfully');
+
+        expect($response->json('data'))->toHaveCount(2);
+        expect(array_column($response->json('data'), 'travel_date'))
+            ->toBe(['2026-08-16', '2026-08-23']);
+    } finally {
+        Carbon::setTestNow();
+    }
 });
 
 test('office can create flight and travel date is derived from departure time', function () {

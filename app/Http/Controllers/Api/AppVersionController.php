@@ -3,18 +3,20 @@ namespace App\Http\Controllers\Api;
 
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 
 class AppVersionController extends Controller{
 
-public function getVersion(){
+public function getVersion(): JsonResponse
+{
+    $version = (string) config('app.flutter_app_version', '');
 
-$data = config('app.FLUTTER_APP_VERSION');
-
- return response()->json($data, 200);
+    return response()
+        ->json([
+            'version' => $version,
+        ], 200)
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        ->header('Pragma', 'no-cache')
+        ->header('Expires', '0');
 }
 }
