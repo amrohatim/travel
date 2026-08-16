@@ -160,6 +160,91 @@ test('support can login using phone', function () {
         ->assertJsonPath('data.user.role', 'support');
 });
 
+test('traveler can change password and login with the new password', function () {
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'phone' => '0911111113',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $response = $this->withHeaders(tokenHeaders($traveler))
+        ->postJson('/api/v1/traveler/password', [
+            'current_password' => 'password123',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('message', 'Traveler password updated successfully');
+
+    expect(Hash::check('newpassword123', $traveler->fresh()->password))->toBeTrue();
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $traveler->phone,
+        'password' => 'password123',
+        'device_id' => 'device-old-traveler-password',
+    ])->assertStatus(422);
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $traveler->phone,
+        'password' => 'newpassword123',
+        'device_id' => 'device-new-traveler-password',
+    ])->assertOk()
+        ->assertJsonPath('data.user.role', 'traveler');
+});
+
+test('traveler password change rejects wrong current password', function () {
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $this->withHeaders(tokenHeaders($traveler))
+        ->postJson('/api/v1/traveler/password', [
+            'current_password' => 'wrong-password',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])->assertStatus(422)
+        ->assertJsonPath('message', 'Validation failed');
+});
+
+test('traveler password change requires matching confirmation', function () {
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $this->withHeaders(tokenHeaders($traveler))
+        ->postJson('/api/v1/traveler/password', [
+            'current_password' => 'password123',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'differentpassword123',
+        ])->assertStatus(422)
+        ->assertJsonPath('message', 'Validation failed');
+});
+
+test('office cannot access traveler password change endpoint', function () {
+    $office = User::factory()->create([
+        'role' => 'office',
+        'password' => Hash::make('password123'),
+    ]);
+
+    $this->withHeaders(tokenHeaders($office))
+        ->postJson('/api/v1/traveler/password', [
+            'current_password' => 'password123',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])->assertForbidden();
+});
+
+test('traveler password change requires authentication', function () {
+    $this->postJson('/api/v1/traveler/password', [
+        'current_password' => 'password123',
+        'password' => 'newpassword123',
+        'password_confirmation' => 'newpassword123',
+    ])->assertUnauthorized();
+});
+
 test('login requires device id', function () {
     $user = User::factory()->create([
         'phone' => '0999999900',

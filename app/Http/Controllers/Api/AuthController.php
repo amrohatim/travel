@@ -121,6 +121,38 @@ class AuthController extends Controller
         ]);
     }
 
+    public function updateTravelerPassword(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validator = Validator::make($request->all(), [
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $validator->after(function ($validator) use ($request, $user): void {
+            if (! $user || ! Hash::check($request->string('current_password')->toString(), $user->password)) {
+                $validator->errors()->add('current_password', 'The current password is incorrect.');
+            }
+        });
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user->update([
+            'password' => $request->string('password')->toString(),
+        ]);
+
+        return response()->json([
+            'message' => 'Traveler password updated successfully',
+            'data' => null,
+        ]);
+    }
+
     private function userPayload(User $user): array
     {
         return [

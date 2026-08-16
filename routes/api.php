@@ -44,6 +44,7 @@ Route::prefix('v1')->group(function (): void {
         Route::middleware('role:traveler')->group(function (): void {
             Route::post('/flights/{flight}/bookings', [BookingController::class, 'store']);
             Route::get('/traveler/bookings', [BookingController::class, 'travelerBookings']);
+            Route::post('/traveler/password', [AuthController::class, 'updateTravelerPassword']);
         });
 
         Route::middleware('role:admin')->group(function (): void {
