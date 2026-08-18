@@ -60,7 +60,7 @@
         <div class="row g-3">
             <div class="col-md-4">
                 <div class="text-secondary small">Route</div>
-                <div>{{ $booking->flight ? $booking->flight->from.' <-- '.$booking->flight->to : '—' }}</div>
+                <div>{{ $booking->flight ? $booking->flight->from.' ➡️ '.$booking->flight->to : '—' }}</div>
             </div>
             <div class="col-md-4">
                 <div class="text-secondary small">Travel Date</div>
