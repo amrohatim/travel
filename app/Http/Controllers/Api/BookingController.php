@@ -29,6 +29,8 @@ class BookingController extends Controller
             'seats_booked' => ['required', 'integer', 'min:1'],
             'passengers' => ['required', 'array'],
             'passengers.*' => ['required', 'string', 'max:255'],
+            'selected_seat_numbers' => ['required', 'array'],
+            'selected_seat_numbers.*' => ['required', 'integer', 'distinct', 'between:1,49'],
             'image' => ['required', 'image', 'max:2048'],
         ]);
 
@@ -41,12 +43,22 @@ class BookingController extends Controller
 
         $requestedSeats = (int) $request->input('seats_booked');
         $passengers = array_values($request->input('passengers', []));
+        $selectedSeatNumbers = $this->normalizeSeatNumbers($request->input('selected_seat_numbers', []));
 
         if (count($passengers) !== $requestedSeats) {
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => [
                     'passengers' => ['Passengers count must match seats_booked.'],
+                ],
+            ], 422);
+        }
+
+        if (count($selectedSeatNumbers) !== $requestedSeats) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => [
+                    'selected_seat_numbers' => ['Selected seats count must match seats_booked.'],
                 ],
             ], 422);
         }
@@ -59,12 +71,19 @@ class BookingController extends Controller
         $booking = null;
 
         try {
-            DB::transaction(function () use ($request, $flight, $requestedSeats, $passengers, $imagePath, &$booking): void {
+            DB::transaction(function () use ($request, $flight, $requestedSeats, $passengers, $selectedSeatNumbers, $imagePath, &$booking): void {
                 $lockedFlight = Flight::whereKey($flight->id)->lockForUpdate()->firstOrFail();
 
                 if ($requestedSeats > $lockedFlight->seats) {
                     throw new \RuntimeException('insufficient_seats');
                 }
+
+                $this->assertSeatNumbersAvailable(
+                    $lockedFlight->id,
+                    $selectedSeatNumbers,
+                    null,
+                    true,
+                );
 
                 $booking = Booking::create([
                     'flight_id' => $lockedFlight->id,
@@ -74,6 +93,7 @@ class BookingController extends Controller
                     'total' => $requestedSeats * $lockedFlight->finalPrice(),
                     'image' => $imagePath,
                     'status' => 'pending',
+                    'selected_seat_numbers' => $selectedSeatNumbers,
                 ]);
 
                 foreach ($passengers as $passengerName) {
@@ -82,6 +102,7 @@ class BookingController extends Controller
                         'flight_id' => $lockedFlight->id,
                         'booking_id' => $booking->id,
                         'traveler_name' => $passengerName,
+                        'seat_number' => null,
                     ]);
                 }
 
@@ -93,6 +114,15 @@ class BookingController extends Controller
                     'message' => 'Validation failed',
                     'errors' => [
                         'seats_booked' => ['Not enough seats available.'],
+                    ],
+                ], 422);
+            }
+
+            if ($exception->getMessage() === 'seat_numbers_reserved') {
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'selected_seat_numbers' => ['One or more selected seats are already reserved.'],
                     ],
                 ], 422);
             }
@@ -187,6 +217,7 @@ class BookingController extends Controller
             $booking = DB::transaction(function () use ($booking, $newStatus, $office, &$previousStatus): Booking {
                 $lockedBooking = Booking::query()
                     ->lockForUpdate()
+                    ->with('seats')
                     ->firstWhere('id', $booking->id);
 
                 if (! $lockedBooking) {
@@ -210,8 +241,21 @@ class BookingController extends Controller
                 $previousStatus = (string) $lockedBooking->status;
                 $seatDelta = (int) $lockedBooking->seats_booked;
 
+                if ($newStatus === 'confirmed' && $previousStatus !== 'confirmed') {
+                    $this->assertSeatSelectionCountMatchesBooking($lockedBooking);
+                    $this->assertSeatNumbersAvailable(
+                        (int) $lockedBooking->flight_id,
+                        $this->normalizedBookingSeatNumbers($lockedBooking),
+                        (int) $lockedBooking->id,
+                        true,
+                    );
+                }
+
                 if ($previousStatus !== 'rejected' && $newStatus === 'rejected') {
                     $lockedFlight->increment('seats', $seatDelta);
+                    Seat::query()
+                        ->where('booking_id', $lockedBooking->id)
+                        ->update(['seat_number' => null]);
                 } elseif ($previousStatus === 'rejected' && $newStatus !== 'rejected') {
                     if ($seatDelta > (int) $lockedFlight->seats) {
                         throw new \RuntimeException('insufficient_seats_for_status_change');
@@ -224,7 +268,15 @@ class BookingController extends Controller
                     'status' => $newStatus,
                 ]);
 
-                return $lockedBooking->fresh(['flight']);
+                if ($newStatus === 'confirmed' && $previousStatus !== 'confirmed') {
+                    $this->assignSeatNumbersToBooking(
+                        $lockedBooking,
+                        $this->normalizedBookingSeatNumbers($lockedBooking),
+                        true,
+                    );
+                }
+
+                return $lockedBooking->fresh(['flight', 'seats']);
             });
         } catch (\RuntimeException $exception) {
             if ($exception->getMessage() === 'insufficient_seats_for_status_change') {
@@ -232,6 +284,24 @@ class BookingController extends Controller
                     'message' => 'Validation failed',
                     'errors' => [
                         'status' => ['Not enough seats available to reactivate this booking.'],
+                    ],
+                ], 422);
+            }
+
+            if ($exception->getMessage() === 'seat_numbers_reserved') {
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'status' => ['One or more selected seats are already reserved.'],
+                    ],
+                ], 422);
+            }
+
+            if ($exception->getMessage() === 'seat_numbers_missing') {
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'status' => ['This booking does not have a complete seat selection.'],
                     ],
                 ], 422);
             }
@@ -257,6 +327,98 @@ class BookingController extends Controller
         ]);
     }
 
+    public function updateSeatNumbers(Request $request, Booking $booking): JsonResponse
+    {
+        $office = $this->activeOfficeContext->resolve($request);
+
+        $validator = Validator::make($request->all(), [
+            'seat_numbers' => ['required', 'array'],
+            'seat_numbers.*' => ['required', 'integer', 'distinct', 'between:1,49'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $seatNumbers = array_values(array_map('intval', $request->input('seat_numbers', [])));
+
+        try {
+            $booking = DB::transaction(function () use ($booking, $office, $seatNumbers): Booking {
+                $lockedBooking = Booking::query()
+                    ->lockForUpdate()
+                    ->with('seats')
+                    ->firstWhere('id', $booking->id);
+
+                if (! $lockedBooking) {
+                    abort(404);
+                }
+
+                $lockedFlight = Flight::query()
+                    ->lockForUpdate()
+                    ->firstWhere('id', $lockedBooking->flight_id);
+
+                if (! $lockedFlight) {
+                    abort(404);
+                }
+
+                if ((int) $lockedFlight->office_id !== (int) $office->id) {
+                    abort(response()->json([
+                        'message' => 'Forbidden',
+                    ], 403));
+                }
+
+                if ((string) $lockedBooking->status !== 'confirmed') {
+                    throw new \RuntimeException('seat_numbers_requires_confirmed');
+                }
+
+                if (count($seatNumbers) !== (int) $lockedBooking->seats_booked) {
+                    throw new \RuntimeException('seat_numbers_count_mismatch');
+                }
+
+                $this->assertSeatNumbersAvailable(
+                    (int) $lockedBooking->flight_id,
+                    $seatNumbers,
+                    (int) $lockedBooking->id,
+                    true,
+                );
+
+                $this->assignSeatNumbersToBooking($lockedBooking, $seatNumbers);
+
+                return $lockedBooking->fresh(['flight', 'seats']);
+            });
+        } catch (\RuntimeException $exception) {
+            return match ($exception->getMessage()) {
+                'seat_numbers_reserved' => response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'seat_numbers' => ['One or more selected seats are already reserved.'],
+                    ],
+                ], 422),
+                'seat_numbers_count_mismatch' => response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'seat_numbers' => ['Seat numbers count must match seats_booked.'],
+                    ],
+                ], 422),
+                'seat_numbers_requires_confirmed' => response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'seat_numbers' => ['Seat numbers can only be edited for confirmed bookings.'],
+                    ],
+                ], 422),
+                default => throw $exception,
+            };
+        }
+
+        return response()->json([
+            'message' => 'Booking seat numbers updated successfully',
+            'data' => $this->bookingPayload($booking, true),
+        ]);
+    }
+
     private function bookingPayload(Booking $booking, bool $includeFlight = false, bool $includeTraveler = false): array
     {
         $payload = [
@@ -269,6 +431,7 @@ class BookingController extends Controller
             'total' => $booking->total,
             'status' => $booking->status,
             'image' => $this->imageUrl($booking->image),
+            'selected_seat_numbers' => $this->normalizeSeatNumbers($booking->selected_seat_numbers ?? []),
             'created_at' => $booking->created_at ? Carbon::parse($booking->created_at)->toIso8601String() : null,
         ];
 
@@ -315,10 +478,116 @@ class BookingController extends Controller
                 'flight_id' => $seat->flight_id,
                 'booking_id' => $seat->booking_id,
                 'traveler_name' => $seat->traveler_name,
+                'seat_number' => $seat->seat_number === null ? null : (int) $seat->seat_number,
             ])->values();
         }
 
         return $payload;
+    }
+
+    private function normalizeSeatNumbers(array $seatNumbers): array
+    {
+        return array_values(array_unique(array_map(
+            static fn ($seatNumber) => (int) $seatNumber,
+            $seatNumbers,
+        )));
+    }
+
+    private function normalizedBookingSeatNumbers(Booking $booking): array
+    {
+        return $this->normalizeSeatNumbers($booking->selected_seat_numbers ?? []);
+    }
+
+    private function assertSeatSelectionCountMatchesBooking(Booking $booking): void
+    {
+        if (count($this->normalizedBookingSeatNumbers($booking)) !== (int) $booking->seats_booked) {
+            throw new \RuntimeException('seat_numbers_missing');
+        }
+    }
+
+    private function assertSeatNumbersAvailable(
+        int $flightId,
+        array $requestedSeatNumbers,
+        ?int $excludeBookingId = null,
+        bool $lock = false,
+    ): void {
+        $reservedSeatNumbers = $this->reservedSeatNumbersForFlight(
+            $flightId,
+            $excludeBookingId,
+            $lock,
+        );
+
+        if (count(array_intersect($this->normalizeSeatNumbers($requestedSeatNumbers), $reservedSeatNumbers)) > 0) {
+            throw new \RuntimeException('seat_numbers_reserved');
+        }
+    }
+
+    private function reservedSeatNumbersForFlight(
+        int $flightId,
+        ?int $excludeBookingId = null,
+        bool $lock = false,
+    ): array {
+        $query = Booking::query()
+            ->where('flight_id', $flightId)
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->with('seats:id,booking_id,seat_number');
+
+        if ($excludeBookingId !== null) {
+            $query->whereKeyNot($excludeBookingId);
+        }
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        $reserved = [];
+
+        foreach ($query->get(['id', 'selected_seat_numbers']) as $booking) {
+            $reserved = array_merge(
+                $reserved,
+                $this->normalizeSeatNumbers($booking->selected_seat_numbers ?? []),
+                $booking->seats
+                    ->pluck('seat_number')
+                    ->filter(static fn ($seatNumber) => $seatNumber !== null)
+                    ->map(static fn ($seatNumber) => (int) $seatNumber)
+                    ->values()
+                    ->all(),
+            );
+        }
+
+        sort($reserved);
+
+        return array_values(array_unique($reserved));
+    }
+
+    private function assignSeatNumbersToBooking(
+        Booking $booking,
+        array $seatNumbers,
+        bool $shuffleSeatNumbers = false,
+    ): void {
+        $seats = $booking->relationLoaded('seats')
+            ? $booking->seats->sortBy('id')->values()
+            : $booking->seats()->orderBy('id')->get();
+
+        $normalizedSeatNumbers = array_values(array_map('intval', $seatNumbers));
+
+        if ($shuffleSeatNumbers) {
+            shuffle($normalizedSeatNumbers);
+        }
+
+        if ($seats->count() !== count($normalizedSeatNumbers)) {
+            throw new \RuntimeException('seat_numbers_missing');
+        }
+
+        foreach ($seats as $index => $seat) {
+            $seat->update([
+                'seat_number' => $normalizedSeatNumbers[$index],
+            ]);
+        }
+
+        $booking->update([
+            'selected_seat_numbers' => $this->normalizeSeatNumbers($normalizedSeatNumbers),
+        ]);
     }
 
     private function imageUrl(?string $image): ?string

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\Flight;
 use App\Models\Seat;
 use App\Services\ActiveOfficeContext;
@@ -278,6 +279,7 @@ class FlightController extends Controller
                 'traveler_name' => $seat->traveler_name,
                 'traveler_phone' => $seat->traveler?->phone,
                 'booking_serial_number' => $seat->booking?->serial_number,
+                'seat_number' => $seat->seat_number === null ? null : (int) $seat->seat_number,
             ])
             ->values();
 
@@ -286,6 +288,37 @@ class FlightController extends Controller
             'data' => [
                 'flight' => $this->flightPayload($flight),
                 'passengers' => $passengers,
+            ],
+        ]);
+    }
+
+    public function reservedSeats(Request $request, Flight $flight): JsonResponse
+    {
+        $reservedSeatNumbers = Booking::query()
+            ->where('flight_id', $flight->id)
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->with('seats:id,booking_id,seat_number')
+            ->get(['id', 'selected_seat_numbers'])
+            ->flatMap(function ($booking) {
+                $selectedSeatNumbers = collect($booking->selected_seat_numbers ?? [])
+                    ->map(static fn ($seatNumber) => (int) $seatNumber);
+                $assignedSeatNumbers = $booking->seats
+                    ->pluck('seat_number')
+                    ->filter(static fn ($seatNumber) => $seatNumber !== null)
+                    ->map(static fn ($seatNumber) => (int) $seatNumber);
+
+                return $selectedSeatNumbers->merge($assignedSeatNumbers);
+            })
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        return response()->json([
+            'message' => 'Reserved seats retrieved successfully',
+            'data' => [
+                'flight_id' => $flight->id,
+                'reserved_seat_numbers' => $reservedSeatNumbers,
             ],
         ]);
     }

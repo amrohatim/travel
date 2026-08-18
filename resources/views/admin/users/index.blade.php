@@ -7,6 +7,33 @@
 </div>
 
 <div class="panel">
+    <form method="GET" action="{{ route('admin.users.index') }}" class="row g-3 align-items-end mb-4">
+        <div class="col-md-5">
+            <label for="user-search" class="form-label">Search</label>
+            <input
+                type="text"
+                name="search"
+                id="user-search"
+                class="form-control"
+                value="{{ $search }}"
+                placeholder="Search by name or phone"
+            >
+        </div>
+        <div class="col-md-3">
+            <label for="user-role" class="form-label">Role</label>
+            <select name="role" id="user-role" class="form-select">
+                <option value="">All roles</option>
+                @foreach ($roles as $roleOption)
+                    <option value="{{ $roleOption }}" @selected($role === $roleOption)>{{ ucfirst($roleOption) }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-4 d-flex gap-2">
+            <button type="submit" class="btn btn-mono">Filter</button>
+            <a href="{{ route('admin.users.index') }}" class="btn btn-outline-mono">Reset</a>
+        </div>
+    </form>
+
     @if ($users->count())
         <div class="table-responsive">
             <table class="table table-striped align-middle mb-0">

@@ -15,16 +15,31 @@ use Illuminate\View\View;
 
 class AdminUserController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $search = trim((string) $request->string('search'));
+        $role = (string) $request->input('role', '');
+        $roles = ['admin', 'office', 'traveler', 'support'];
+
         $users = User::query()
             ->with(['parentCompany', 'state', 'assignedOffices:id,name', 'devices' => function ($query): void {
                 $query->latest();
             }])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($userQuery) use ($search): void {
+                    $userQuery
+                        ->where('name', 'like', '%'.$search.'%')
+                        ->orWhere('phone', 'like', '%'.$search.'%');
+                });
+            })
+            ->when(in_array($role, $roles, true), function ($query) use ($role): void {
+                $query->where('role', $role);
+            })
             ->orderByDesc('created_at')
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
-        return view('admin.users.index', compact('users'));
+        return view('admin.users.index', compact('users', 'search', 'role', 'roles'));
     }
 
     public function create(): View

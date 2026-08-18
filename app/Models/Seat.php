@@ -11,6 +11,7 @@ class Seat extends Model
         'flight_id',
         'booking_id',
         'traveler_name',
+        'seat_number',
     ];
 
     public function booking()

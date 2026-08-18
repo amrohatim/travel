@@ -16,6 +16,11 @@ class Booking extends Model
         'status',
         'demanded',
         'image',
+        'selected_seat_numbers',
+    ];
+
+    protected $casts = [
+        'selected_seat_numbers' => 'array',
     ];
 
     protected static function booted(): void

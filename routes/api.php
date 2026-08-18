@@ -24,6 +24,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/offices', [OfficeController::class, 'index']);
         Route::post('/notifications/token', [NotificationTokenController::class, 'store']);
         Route::delete('/notifications/token', [NotificationTokenController::class, 'destroy']);
+        Route::get('/flights/{flight}/reserved-seats', [FlightController::class, 'reservedSeats']);
 
         Route::middleware('role:office,support')->group(function (): void {
             Route::get('/office/profile', [OfficeController::class, 'profile']);
@@ -39,6 +40,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/office/bookings', [BookingController::class, 'officeBookings']);
             Route::get('/office/bookings/summary', [BookingController::class, 'officeBookingsSummary']);
             Route::patch('/office/bookings/{booking}/status', [BookingController::class, 'updateStatus']);
+            Route::patch('/office/bookings/{booking}/seats', [BookingController::class, 'updateSeatNumbers']);
         });
 
         Route::middleware('role:traveler')->group(function (): void {

@@ -39,6 +39,59 @@ it('blocks non admin users from admin pages', function () {
     $this->actingAs($traveler)->get('/admin/home-messages')->assertForbidden();
 });
 
+it('admin can search users by name or phone on the users page', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    User::factory()->create(['role' => 'traveler', 'name' => 'Alice Walker', 'phone' => '555100']);
+    User::factory()->create(['role' => 'traveler', 'name' => 'Bob Stone', 'phone' => '555200']);
+
+    $this->actingAs($admin)
+        ->get('/admin/users?search=Alice')
+        ->assertOk()
+        ->assertSeeText('Alice Walker')
+        ->assertDontSeeText('Bob Stone');
+
+    $this->actingAs($admin)
+        ->get('/admin/users?search=5200')
+        ->assertOk()
+        ->assertSeeText('Bob Stone')
+        ->assertDontSeeText('Alice Walker');
+});
+
+it('admin can filter users by role on the users page', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    User::factory()->create(['role' => 'traveler', 'name' => 'Traveler Filter Match']);
+    User::factory()->create(['role' => 'office', 'name' => 'Office Filter Miss']);
+
+    $this->actingAs($admin)
+        ->get('/admin/users?role=traveler')
+        ->assertOk()
+        ->assertSeeText('Traveler Filter Match')
+        ->assertDontSeeText('Office Filter Miss');
+});
+
+it('user pagination keeps active search and role filters', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    foreach (range(1, 16) as $index) {
+        User::factory()->create([
+            'role' => 'traveler',
+            'name' => 'Traveler Filter '.$index,
+            'phone' => '700'.$index,
+        ]);
+    }
+
+    User::factory()->create([
+        'role' => 'office',
+        'name' => 'Office Filter Excluded',
+        'phone' => '8999',
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/users?search=Traveler+Filter&role=traveler')
+        ->assertOk()
+        ->assertSee('search=Traveler+Filter&amp;role=traveler&amp;page=2', false);
+});
+
 it('blocks non admin users from admin delete endpoints', function () {
     $traveler = User::factory()->create(['role' => 'traveler']);
     $office = User::factory()->create(['role' => 'office']);
