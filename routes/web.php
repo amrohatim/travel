@@ -60,6 +60,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/fees', [AdminFeeController::class, 'index'])->name('fees.index');
     Route::post('/fees/{office}/clear', [AdminFeeController::class, 'clearOfficeFees'])->name('fees.clear');
     Route::get('/bookings', [AdminBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/{booking}', [AdminBookingController::class, 'show'])->name('bookings.show');
     Route::get('/bookings/{booking}/seats', [AdminBookingController::class, 'seats'])->name('bookings.seats');
     Route::delete('/bookings/{booking}', [AdminBookingController::class, 'destroy'])->name('bookings.destroy');
     Route::post('/bookings/bulk-delete', [AdminBookingController::class, 'bulkDestroy'])->name('bookings.bulk-destroy');

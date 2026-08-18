@@ -7,6 +7,8 @@ use App\Models\Seat;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class AdminBookingController extends Controller
@@ -19,6 +21,20 @@ class AdminBookingController extends Controller
             ->paginate(20);
 
         return view('admin.bookings.index', compact('bookings'));
+    }
+
+    public function show(Booking $booking): View
+    {
+        $booking->load([
+            'flight',
+            'traveler',
+            'office',
+            'seats' => fn ($query) => $query->with('traveler')->orderBy('id'),
+        ]);
+
+        $bookingImageUrl = $this->bookingImageUrl($booking->image);
+
+        return view('admin.bookings.show', compact('booking', 'bookingImageUrl'));
     }
 
     public function seats(Booking $booking): View
@@ -57,5 +73,28 @@ class AdminBookingController extends Controller
         });
 
         return redirect()->route('admin.bookings.index')->with('success', count($bookingIds).' booking(s) deleted successfully.');
+    }
+
+    private function bookingImageUrl(?string $image): ?string
+    {
+        if (! $image) {
+            return null;
+        }
+
+        if (Str::startsWith($image, ['http://', 'https://'])) {
+            return $image;
+        }
+
+        $cleanImage = ltrim($image, '/');
+
+        if (Str::startsWith($cleanImage, 'storage/')) {
+            return url($cleanImage);
+        }
+
+        if (Storage::disk('public')->exists($cleanImage)) {
+            return url('storage/'.$cleanImage);
+        }
+
+        return url($cleanImage);
     }
 }

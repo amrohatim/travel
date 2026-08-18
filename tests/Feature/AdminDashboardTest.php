@@ -148,6 +148,7 @@ it('blocks non admin users from admin seats endpoints', function () {
     ]);
 
     $this->actingAs($traveler)->get('/admin/flights/'.$flight->id.'/seats')->assertForbidden();
+    $this->actingAs($traveler)->get('/admin/bookings/'.$booking->id)->assertForbidden();
     $this->actingAs($traveler)->get('/admin/bookings/'.$booking->id.'/seats')->assertForbidden();
 });
 
@@ -631,6 +632,74 @@ it('admin pages render expected headings', function () {
     $this->actingAs($admin)->get('/admin/states')->assertSeeText('States');
     $this->actingAs($admin)->get('/admin/parent-companies')->assertSeeText('Parent Companies');
     $this->actingAs($admin)->get('/admin/home-messages')->assertSeeText('Home Messages')->assertSeeText('Add Home Message')->assertSeeText('Home Message List');
+});
+
+it('admin can open booking details page with traveler flight and bankak info', function () {
+    Storage::fake('public');
+
+    $admin = User::factory()->create(['role' => 'admin']);
+    $office = User::factory()->create([
+        'role' => 'office',
+        'name' => 'Office Contact',
+        'phone' => '222333',
+    ]);
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'name' => 'Traveler Detail',
+        'phone' => '999000',
+        'email' => 'traveler-detail@example.com',
+    ]);
+
+    $flight = Flight::query()->create([
+        'from' => 'Khartoum',
+        'to' => 'Port Sudan',
+        'travel_date' => '2026-08-20',
+        'departure_time' => '2026-08-20 08:30:00',
+        'price' => 150,
+        'seats' => 20,
+        'office_id' => $office->id,
+        'office_name' => $office->name,
+    ]);
+
+    $booking = Booking::query()->create([
+        'flight_id' => $flight->id,
+        'office_id' => $office->id,
+        'traveler_id' => $traveler->id,
+        'seats_booked' => 2,
+        'total' => 300,
+        'status' => 'pending',
+        'image' => UploadedFile::fake()->image('bankak.jpg')->store('bookings', 'public'),
+        'selected_seat_numbers' => [5, 6],
+    ]);
+
+    Seat::query()->create([
+        'booking_id' => $booking->id,
+        'traveler_id' => $traveler->id,
+        'traveler_name' => 'Traveler Detail',
+        'seat_number' => 5,
+    ]);
+
+    Seat::query()->create([
+        'booking_id' => $booking->id,
+        'traveler_id' => $traveler->id,
+        'traveler_name' => 'Passenger Two',
+        'seat_number' => 6,
+    ]);
+
+    $this->actingAs($admin)
+        ->get('/admin/bookings/'.$booking->id)
+        ->assertOk()
+        ->assertSeeText('Booking Details')
+        ->assertSeeText('Traveler Detail')
+        ->assertSeeText('Passenger Two')
+        ->assertSeeText('999000')
+        ->assertSeeText('traveler-detail@example.com')
+        ->assertSeeText('Khartoum')
+        ->assertSeeText('Port Sudan')
+        ->assertSeeText('Office Contact')
+        ->assertSeeText('222333')
+        ->assertSeeText('5, 6')
+        ->assertSee('storage/bookings/', false);
 });
 
 it('fees page lists all offices and aggregates only payable bookings', function () {

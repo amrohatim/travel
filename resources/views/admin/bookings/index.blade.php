@@ -25,7 +25,7 @@
                 </thead>
                 <tbody>
                     @foreach ($bookings as $booking)
-                        <tr>
+                        <tr class="booking-row" data-href="{{ route('admin.bookings.show', $booking) }}" style="cursor: pointer;">
                             <td>
                                 <input type="checkbox" value="{{ $booking->id }}" class="booking-checkbox">
                             </td>
@@ -38,6 +38,7 @@
                             <td>{{ $booking->status }}</td>
                             <td>{{ $booking->created_at?->format('Y-m-d H:i') }}</td>
                             <td class="text-end">
+                                <a href="{{ route('admin.bookings.show', $booking) }}" class="btn btn-sm btn-outline-mono">View Details</a>
                                 <a href="{{ route('admin.bookings.seats', $booking) }}" class="btn btn-sm btn-outline-mono">View Seats</a>
                                 <form method="POST" action="{{ route('admin.bookings.destroy', $booking) }}" class="d-inline" onsubmit="return confirm('Delete this booking and related seats?');">
                                     @csrf
@@ -65,6 +66,7 @@
                 const checkboxes = Array.from(document.querySelectorAll('.booking-checkbox'));
                 const bulkButton = document.getElementById('bulk-delete-bookings-btn');
                 const bulkInputs = document.getElementById('bulk-booking-inputs');
+                const rows = Array.from(document.querySelectorAll('.booking-row'));
 
                 const updateButtonState = () => {
                     const anyChecked = checkboxes.some((checkbox) => checkbox.checked);
@@ -80,6 +82,18 @@
 
                 checkboxes.forEach((checkbox) => {
                     checkbox.addEventListener('change', updateButtonState);
+                });
+
+                rows.forEach((row) => {
+                    row.addEventListener('click', (event) => {
+                        if (event.target.closest('a, button, form, input, label')) {
+                            return;
+                        }
+
+                        if (row.dataset.href) {
+                            window.location.href = row.dataset.href;
+                        }
+                    });
                 });
 
                 form.addEventListener('submit', (event) => {
