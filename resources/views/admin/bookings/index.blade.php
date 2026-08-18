@@ -31,7 +31,7 @@
                             </td>
                             <td>{{ $booking->serial_number }}</td>
                             <td>{{ $booking->traveler?->name ?: '—' }}</td>
-                            <td>{{ $booking->flight ? $booking->flight->from.' <-- '.$booking->flight->to : '—' }}</td>
+                            <td>{{ $booking->flight ? $booking->flight->from.' ⬅️ '.$booking->flight->to : '—' }}</td>
                             <td>{{ $booking->office?->name ?: $booking->flight?->office_name ?: '—' }}</td>
                             <td>{{ $booking->seats_booked }}</td>
                             <td>{{ $booking->total }}</td>
