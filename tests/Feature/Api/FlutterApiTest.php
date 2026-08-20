@@ -27,7 +27,7 @@ function tokenHeaders(User $user): array
 test('it registers traveler and returns token', function () {
     $response = $this->postJson('/api/v1/auth/register', [
         'name' => 'Traveler One',
-        'phone' => '0999999991',
+        'phone' => '09123456789',
         'password' => 'password123',
         'password_confirmation' => 'password123',
         'device_id' => 'device-register-1',
@@ -37,7 +37,7 @@ test('it registers traveler and returns token', function () {
 
     $response->assertCreated()
         ->assertJsonPath('message', 'Registered successfully')
-        ->assertJsonPath('data.user.phone', '0999999991')
+        ->assertJsonPath('data.user.phone', '09123456789')
         ->assertJsonPath('data.user.role', 'traveler');
 
     expect($response->json('data.token'))->not->toBeEmpty();
@@ -50,7 +50,7 @@ test('it registers traveler and returns token', function () {
 
 test('it logs in and logs out with sanctum token', function () {
     $user = User::factory()->create([
-        'phone' => '0999999992',
+        'phone' => '09123456780',
         'password' => Hash::make('password123'),
         'role' => 'traveler',
     ]);
@@ -76,10 +76,10 @@ test('it logs in and logs out with sanctum token', function () {
         ->assertJsonPath('message', 'Logged out successfully');
 });
 
-test('registration requires a valid 10 digit phone', function () {
+test('registration requires a valid 10 digit phone or 11 digits starting with 0', function () {
     $response = $this->postJson('/api/v1/auth/register', [
         'name' => 'Traveler Invalid',
-        'phone' => '09999',
+        'phone' => '19123456789',
         'password' => 'password123',
         'password_confirmation' => 'password123',
         'device_id' => 'device-invalid-1',
@@ -121,12 +121,12 @@ test('registration requires device id', function () {
 test('office and admin can login using phone', function () {
     $office = User::factory()->create([
         'role' => 'office',
-        'phone' => '0999999995',
+        'phone' => '09123456781',
         'password' => Hash::make('password123'),
     ]);
     $admin = User::factory()->create([
         'role' => 'admin',
-        'phone' => '0999999996',
+        'phone' => '09123456782',
         'password' => Hash::make('password123'),
     ]);
 
@@ -148,7 +148,7 @@ test('office and admin can login using phone', function () {
 test('support can login using phone', function () {
     $support = User::factory()->create([
         'role' => 'support',
-        'phone' => '0999999997',
+        'phone' => '09123456783',
         'password' => Hash::make('password123'),
     ]);
 
@@ -247,7 +247,7 @@ test('traveler password change requires authentication', function () {
 
 test('login requires device id', function () {
     $user = User::factory()->create([
-        'phone' => '0999999900',
+        'phone' => '09123456784',
         'password' => Hash::make('password123'),
         'role' => 'traveler',
     ]);

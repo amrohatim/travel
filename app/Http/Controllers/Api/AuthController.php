@@ -16,7 +16,7 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'regex:/^\d{10}$/', 'unique:users,phone'],
+            'phone' => ['required', 'string', 'regex:/^(?:\d{10}|0\d{10})$/', 'unique:users,phone'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'device_id' => ['required', 'string', 'max:255'],
             'device_model' => ['nullable', 'string', 'max:255'],
@@ -57,7 +57,7 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'phone' => ['required', 'string', 'regex:/^\d{10}$/'],
+            'phone' => ['required', 'string', 'regex:/^(?:\d{10}|0\d{10})$/'],
             'password' => ['required', 'string'],
             'device_id' => ['required', 'string', 'max:255'],
             'device_model' => ['nullable', 'string', 'max:255'],

@@ -86,7 +86,7 @@ class OfficeController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'regex:/^\d{10}$/'],
+            'phone' => ['nullable', 'regex:/^(?:\d{10}|0\d{10})$/'],
             'bankak_name' => ['nullable', 'string', 'max:255'],
             'bankak_number' => ['nullable', 'regex:/^\d+$/'],
             'image' => ['nullable', 'image', 'max:2048'],
