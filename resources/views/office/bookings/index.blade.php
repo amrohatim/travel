@@ -4,6 +4,7 @@
 <table class="table table-striped">
 <tr>
     <th>المسافر</th>
+    <th>الرقم الاحتياطي</th>
     <th>الرحلة</th>
     <th>المكتب</th>
     <th>المقاعد</th>
@@ -14,6 +15,7 @@
 @foreach($bookings as $booking)
 <tr>
     <td>{{ $booking->traveler->name }}</td>
+    <td>{{ $booking->traveler->backup_number ?: '' }}</td>
     <td>{{ $booking->flight->from }} → {{ $booking->flight->to }}</td>
     <td>{{ $booking->flight->office_name }}</td>
     <td>{{ $booking->seats_booked }}</td>

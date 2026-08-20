@@ -76,6 +76,42 @@ test('it logs in and logs out with sanctum token', function () {
         ->assertJsonPath('message', 'Logged out successfully');
 });
 
+test('traveler can save a valid backup number and it is returned on login', function () {
+    $traveler = User::factory()->create([
+        'phone' => '09123456880',
+        'password' => Hash::make('password123'),
+        'role' => 'traveler',
+    ]);
+
+    $this->withHeaders(tokenHeaders($traveler))
+        ->postJson('/api/v1/traveler/backup-number', [
+            'backup_number' => '09123456889',
+        ])->assertOk()
+        ->assertJsonPath('data.user.backup_number', '09123456889');
+
+    $this->assertDatabaseHas('users', [
+        'id' => $traveler->id,
+        'backup_number' => '09123456889',
+    ]);
+
+    $this->postJson('/api/v1/auth/login', [
+        'phone' => $traveler->phone,
+        'password' => 'password123',
+        'device_id' => 'device-backup-login',
+    ])->assertOk()
+        ->assertJsonPath('data.user.backup_number', '09123456889');
+});
+
+test('backup number requires the supported phone format', function () {
+    $traveler = User::factory()->create(['role' => 'traveler']);
+
+    $this->withHeaders(tokenHeaders($traveler))
+        ->postJson('/api/v1/traveler/backup-number', [
+            'backup_number' => '19123456789',
+        ])->assertStatus(422)
+        ->assertJsonPath('message', 'Validation failed');
+});
+
 test('registration requires a valid 10 digit phone or 11 digits starting with 0', function () {
     $response = $this->postJson('/api/v1/auth/register', [
         'name' => 'Traveler Invalid',
@@ -1083,7 +1119,10 @@ test('booking creation rejects seat requests greater than available seats', func
 test('office sees only own bookings and can only update own booking status', function () {
     $officeA = User::factory()->create(['role' => 'office', 'name' => 'Office A']);
     $officeB = User::factory()->create(['role' => 'office', 'name' => 'Office B']);
-    $traveler = User::factory()->create(['role' => 'traveler']);
+    $traveler = User::factory()->create([
+        'role' => 'traveler',
+        'backup_number' => '09123456789',
+    ]);
 
     $flightA = Flight::create([
         'from' => 'Dubai',
@@ -1126,6 +1165,7 @@ test('office sees only own bookings and can only update own booking status', fun
     $listResponse->assertOk();
     expect($listResponse->json('data'))->toHaveCount(1);
     expect($listResponse->json('data.0.id'))->toBe($bookingA->id);
+    expect($listResponse->json('data.0.traveler.backup_number'))->toBe('09123456789');
 
     $this->withHeaders(tokenHeaders($officeA))
         ->patchJson('/api/v1/office/bookings/'.$bookingA->id.'/status', [

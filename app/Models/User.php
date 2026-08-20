@@ -27,6 +27,7 @@ class User extends Authenticatable
         'email',
         'image',
         'phone',
+        'backup_number',
         'bankak_name',
         'bankak_number',
         'password',

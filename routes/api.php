@@ -21,6 +21,7 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware(['auth:sanctum', 'device.status'])->group(function (): void {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::get('/auth/me', [AuthController::class, 'me']);
         Route::get('/offices', [OfficeController::class, 'index']);
         Route::post('/notifications/token', [NotificationTokenController::class, 'store']);
         Route::delete('/notifications/token', [NotificationTokenController::class, 'destroy']);
@@ -47,6 +48,7 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/flights/{flight}/bookings', [BookingController::class, 'store']);
             Route::get('/traveler/bookings', [BookingController::class, 'travelerBookings']);
             Route::post('/traveler/password', [AuthController::class, 'updateTravelerPassword']);
+            Route::post('/traveler/backup-number', [AuthController::class, 'updateBackupNumber']);
         });
 
         Route::middleware('role:admin')->group(function (): void {

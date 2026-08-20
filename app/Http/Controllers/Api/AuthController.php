@@ -12,6 +12,16 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    public function me(Request $request): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Authenticated user retrieved successfully',
+            'data' => [
+                'user' => $this->userPayload($request->user()),
+            ],
+        ]);
+    }
+
     public function register(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -153,12 +163,39 @@ class AuthController extends Controller
         ]);
     }
 
+    public function updateBackupNumber(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'backup_number' => ['required', 'string', 'regex:/^(?:\d{10}|0\d{10})$/'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = $request->user();
+        $user->update([
+            'backup_number' => $request->string('backup_number')->toString(),
+        ]);
+
+        return response()->json([
+            'message' => 'Backup number updated successfully',
+            'data' => [
+                'user' => $this->userPayload($user->fresh()),
+            ],
+        ]);
+    }
+
     private function userPayload(User $user): array
     {
         return [
             'id' => $user->id,
             'name' => $user->name,
             'phone' => $user->phone,
+            'backup_number' => $user->backup_number,
             'email' => $user->email,
             'role' => $user->role,
             'image' => $user->image,

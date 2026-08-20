@@ -468,6 +468,7 @@ class BookingController extends Controller
                 'name' => $booking->traveler->name,
                 'email' => $booking->traveler->email,
                 'phone' => $booking->traveler->phone,
+                'backup_number' => $booking->traveler->backup_number,
             ];
         }
 
